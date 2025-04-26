@@ -1,9 +1,15 @@
 'use client';
 
+import { auth } from '@/lib/firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { Field, Form, Formik, FormikHelpers } from 'formik';
 import { useRouter } from 'next/navigation';
-import { Formik, Form, Field, FormikHelpers } from 'formik';
+import { useRef, useState } from 'react';
 import * as Yup from 'yup';
-import { useState, useRef } from 'react';
+import { useAuth } from '@/components/AuthProvider';
 
 interface FormValues {
   email: string;
@@ -29,6 +35,7 @@ const signupSchema = loginSchema.shape({
 
 const Login = () => {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
 
@@ -45,6 +52,45 @@ const Login = () => {
     setIsSignup(!isSignup);
   };
 
+  const handleSubmit = async (
+    values: FormValues,
+    { setSubmitting, setErrors }: FormikHelpers<FormValues>
+  ) => {
+    try {
+      let userCredential;
+      if (isSignup) {
+        userCredential = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+      } else {
+        userCredential = await signInWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+      }
+
+      // Set the user in the auth context
+      setUser(userCredential.user);
+
+      // Set the session cookie
+      document.cookie = `session=${userCredential.user}; path=/;`;
+
+      // Redirect to the home page
+      router.push('/');
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Authentication failed. Please try again.';
+      setErrors({ email: errorMessage });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className='flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900'>
       <div className='w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg'>
@@ -53,7 +99,7 @@ const Login = () => {
             {isSignup ? 'Create an Account' : 'Welcome to GexChat'}
           </h1>
           <p className='text-gray-600 dark:text-gray-400'>
-            Connect and chat with anyone, anywhere.
+            Connect and chat with someone, somewhere. Maybe...
           </p>
         </div>
 
@@ -65,38 +111,7 @@ const Login = () => {
           innerRef={(formik) => {
             formikRef.current = formik;
           }}
-          onSubmit={async (values, { setSubmitting, setErrors }) => {
-            try {
-              if (isSignup) {
-                // Temporary test signup
-                if (values.email !== 'test@example.com') {
-                  document.cookie = 'session=true; path=/';
-                  router.push('/chat');
-                } else {
-                  setErrors({ email: 'Email already exists' });
-                }
-              } else {
-                // Temporary test login
-                if (
-                  values.email === 'test@example.com' &&
-                  values.password === 'password'
-                ) {
-                  document.cookie = 'session=true; path=/';
-                  router.push('/chat');
-                } else {
-                  setErrors({ email: 'Invalid credentials' });
-                }
-              }
-            } catch (err) {
-              setErrors({
-                email: `An error occurred: ${
-                  err instanceof Error ? err.message : 'Unknown error'
-                }`,
-              });
-            } finally {
-              setSubmitting(false);
-            }
-          }}
+          onSubmit={handleSubmit}
         >
           {({ errors, touched, isSubmitting }) => (
             <Form>
