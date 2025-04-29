@@ -129,8 +129,14 @@ const Login = () => {
             handleChange,
             handleBlur,
             values,
+            handleSubmit,
           }) => (
-            <Box component='form'>
+            <Box
+              component='form'
+              method='post'
+              autoComplete='off'
+              onSubmit={handleSubmit}
+            >
               <Box mb={3}>
                 <TextField
                   fullWidth
