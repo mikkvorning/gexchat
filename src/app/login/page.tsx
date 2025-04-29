@@ -1,15 +1,16 @@
 'use client';
 
+import { useAuth } from '@/components/AuthProvider';
 import { auth } from '@/lib/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { Field, Form, Formik, FormikHelpers } from 'formik';
+import { Formik, FormikHelpers } from 'formik';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import * as Yup from 'yup';
-import { useAuth } from '@/components/AuthProvider';
+import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
 
 interface FormValues {
   email: string;
@@ -92,17 +93,25 @@ const Login = () => {
   };
 
   return (
-    <div className='flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900'>
-      <div className='w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg'>
-        <div className='text-center mb-8'>
-          <h1 className='text-3xl font-bold text-gray-900 dark:text-white mb-2'>
+    <Box
+      display='flex'
+      minHeight='100vh'
+      alignItems='center'
+      justifyContent='center'
+      bgcolor='background.default'
+    >
+      <Paper
+        elevation={3}
+        sx={{ width: '100%', maxWidth: 400, p: 4, borderRadius: 3 }}
+      >
+        <Box textAlign='center' mb={4}>
+          <Typography variant='h4' fontWeight={700} mb={1} color='text.primary'>
             {isSignup ? 'Create an Account' : 'Welcome to GexChat'}
-          </h1>
-          <p className='text-gray-600 dark:text-gray-400'>
+          </Typography>
+          <Typography color='text.secondary'>
             Connect and chat with someone, somewhere. Maybe...
-          </p>
-        </div>
-
+          </Typography>
+        </Box>
         <Formik
           key={isSignup ? 'signup' : 'signin'}
           initialValues={initialValues}
@@ -113,59 +122,73 @@ const Login = () => {
           }}
           onSubmit={handleSubmit}
         >
-          {({ errors, touched, isSubmitting }) => (
-            <Form>
-              <div className='mb-8 relative'>
-                <Field
-                  type='email'
+          {({
+            errors,
+            touched,
+            isSubmitting,
+            handleChange,
+            handleBlur,
+            values,
+          }) => (
+            <Box component='form'>
+              <Box mb={3}>
+                <TextField
+                  fullWidth
+                  label='Email'
                   name='email'
-                  placeholder='Email'
-                  className='w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+                  type='email'
+                  value={values.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
                   disabled={isSubmitting}
+                  error={Boolean(errors.email && touched.email)}
+                  helperText={touched.email && errors.email}
+                  margin='normal'
                 />
-                {errors.email && touched.email && (
-                  <p className='text-red-500 text-sm absolute -bottom-6 left-2'>
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-
-              <div className='mb-8 relative'>
-                <Field
-                  type='password'
+              </Box>
+              <Box mb={3}>
+                <TextField
+                  fullWidth
+                  label='Password'
                   name='password'
-                  placeholder='Password'
-                  className='w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+                  type='password'
+                  value={values.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
                   disabled={isSubmitting}
+                  error={Boolean(errors.password && touched.password)}
+                  helperText={touched.password && errors.password}
+                  margin='normal'
                 />
-                {errors.password && touched.password && (
-                  <p className='text-red-500 text-sm absolute -bottom-6 left-2'>
-                    {errors.password}
-                  </p>
-                )}
-              </div>
-
+              </Box>
               {isSignup && (
-                <div className='mb-8 relative'>
-                  <Field
-                    type='password'
+                <Box mb={3}>
+                  <TextField
+                    fullWidth
+                    label='Confirm Password'
                     name='confirmPassword'
-                    placeholder='Confirm Password'
-                    className='w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+                    type='password'
+                    value={values.confirmPassword}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
                     disabled={isSubmitting}
+                    error={Boolean(
+                      errors.confirmPassword && touched.confirmPassword
+                    )}
+                    helperText={
+                      touched.confirmPassword && errors.confirmPassword
+                    }
+                    margin='normal'
                   />
-                  {errors.confirmPassword && touched.confirmPassword && (
-                    <p className='text-red-500 text-sm absolute -bottom-5 left-2'>
-                      {errors.confirmPassword}
-                    </p>
-                  )}
-                </div>
+                </Box>
               )}
-
-              <button
+              <Button
+                fullWidth
                 type='submit'
+                variant='contained'
+                color='primary'
                 disabled={isSubmitting}
-                className='w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 disabled:bg-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:disabled:bg-blue-400 transition-colors'
+                sx={{ mt: 2 }}
               >
                 {isSubmitting
                   ? isSignup
@@ -174,22 +197,28 @@ const Login = () => {
                   : isSignup
                   ? 'Sign up'
                   : 'Sign in'}
-              </button>
-            </Form>
+              </Button>
+            </Box>
           )}
         </Formik>
-
-        <p className='mt-6 text-center text-gray-600 dark:text-gray-400'>
-          {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            onClick={handleFormSwitch}
-            className='text-blue-500 dark:text-blue-400 hover:underline'
-          >
-            {isSignup ? 'Sign in' : 'Sign up'}
-          </button>
-        </p>
-      </div>
-    </div>
+        <Box mt={4} textAlign='center'>
+          <Typography color='text.secondary'>
+            {isSignup ? 'Already have an account?' : "Don't have an account?"}
+            <Link
+              component='button'
+              onClick={handleFormSwitch}
+              sx={{
+                color: 'primary.main',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+              }}
+            >
+              {isSignup ? 'Sign in' : 'Sign up'}
+            </Link>
+          </Typography>
+        </Box>
+      </Paper>
+    </Box>
   );
 };
 

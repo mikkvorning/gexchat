@@ -1,14 +1,41 @@
 import React from 'react';
+import { Box, Paper } from '../app/muiImports';
 
 const Sidebar = () => {
   return (
-    <aside className='flex flex-col h-full w-20 bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-sm'>
-      <div className='flex-1 flex flex-col items-center justify-between py-4'>
+    <Paper
+      elevation={2}
+      sx={{
+        width: 80,
+        height: '100vh',
+        borderRadius: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: 'background.paper',
+        borderRight: 1,
+        borderColor: 'divider',
+        boxShadow: 1,
+      }}
+    >
+      <Box
+        flex={1}
+        display='flex'
+        flexDirection='column'
+        alignItems='center'
+        justifyContent='space-between'
+        py={2}
+      >
         {/* Top section for future nav/chat list */}
-        <div className='flex-1 w-full flex flex-col items-center h100'></div>
+        <Box
+          flex={1}
+          width='100%'
+          display='flex'
+          flexDirection='column'
+          alignItems='center'
+        />
         {/* Bottom section for settings */}
-      </div>
-    </aside>
+      </Box>
+    </Paper>
   );
 };
 

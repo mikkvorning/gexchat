@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import Sidebar from '@/components/Sidebar';
+import { Box, Typography, Paper, Button, CircularProgress } from './muiImports';
 
 const Home = () => {
   const { user, loading } = useAuth();
@@ -16,9 +17,19 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className='flex flex-col items-center justify-center min-h-screen p-24'>
-        <span className='text-lg font-semibold animate-pulse'>Loading...</span>
-      </div>
+      <Box
+        display='flex'
+        flexDirection='column'
+        alignItems='center'
+        justifyContent='center'
+        minHeight='100vh'
+        p={6}
+      >
+        <CircularProgress />
+        <Typography variant='h6' mt={2}>
+          Loading...
+        </Typography>
+      </Box>
     );
   }
 
@@ -27,19 +38,38 @@ const Home = () => {
   }
 
   return (
-    <div className='flex min-h-screen'>
+    <Box display='flex' minHeight='100vh'>
       <Sidebar />
-      <div className='flex flex-1 flex-col items-center justify-center p-24'>
-        <div className='bg-white dark:bg-gray-800 rounded-xl shadow-lg p-10 flex flex-col items-center'>
-          <h1 className='text-3xl font-bold mb-2 text-gray-900 dark:text-white'>
+      <Box
+        flex={1}
+        display='flex'
+        flexDirection='column'
+        alignItems='center'
+        justifyContent='center'
+        p={6}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 5,
+            borderRadius: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Typography variant='h4' fontWeight={700} mb={2} color='text.primary'>
             Welcome to GexChat
-          </h1>
-          <p className='text-gray-600 dark:text-gray-300'>
+          </Typography>
+          <Typography color='text.secondary' mb={2}>
             You are logged in. Enjoy chatting!
-          </p>
-        </div>
-      </div>
-    </div>
+          </Typography>
+          <Button variant='contained' color='primary'>
+            Primary
+          </Button>
+        </Paper>
+      </Box>
+    </Box>
   );
 };
 
