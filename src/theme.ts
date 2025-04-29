@@ -29,21 +29,42 @@ const cyanideTheme = createTheme({
   components: {
     MuiAppBar: {
       styleOverrides: {
-        colorInherit: {
-          backgroundColor: '#191331',
-          color: '#fff',
+        colorPrimary: {
+          backgroundColor: '#aaf07f', // use primary color
+          color: '#000',
         },
       },
       defaultProps: {
-        color: 'inherit',
+        color: 'primary',
       },
     },
     MuiButton: {
       styleOverrides: {
         root: ({ theme }) => ({
-          px: theme.spacing(2),
+          paddingRight: theme.spacing(2),
+          paddingLeft: theme.spacing(2),
           whiteSpace: 'normal',
           minWidth: 'unset',
+        }),
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        standardInfo: ({ theme }) => ({
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.info.main,
+        }),
+        standardSuccess: ({ theme }) => ({
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.success.main,
+        }),
+        standardWarning: ({ theme }) => ({
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.warning.main,
+        }),
+        standardError: ({ theme }) => ({
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.error.main,
         }),
       },
     },
