@@ -1,7 +1,9 @@
 'use client';
+
 import * as React from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from '../theme';
+import EmotionRegistry from '@/lib/emotion-registry';
 
 export default function MuiProvider({
   children,
@@ -9,9 +11,11 @@ export default function MuiProvider({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
+    <EmotionRegistry>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </EmotionRegistry>
   );
 }
