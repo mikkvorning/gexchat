@@ -2,12 +2,14 @@ import { useState } from 'react';
 import {
   Avatar,
   Box,
+  IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   TextField,
 } from '../app/muiImports';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 const mockContactList = [
   { id: 1, name: 'Dennis Reynolds' },
@@ -54,7 +56,6 @@ const Sidebar = () => {
             );
           }}
         />
-
         <List>
           {filteredContacts.map((contact) => (
             <ListItem
@@ -75,18 +76,14 @@ const Sidebar = () => {
             </ListItem>
           ))}
         </List>
-
-        {/* Top section for future nav/chat list */}
       </Box>
 
-      <Box
-        flex={1}
-        width='100%'
-        display='flex'
-        flexDirection='column'
-        alignItems='center'
-      />
       {/* Bottom section for settings */}
+      <Box p={2} display='flex' justifyContent='flex-end'>
+        <IconButton>
+          <SettingsIcon />
+        </IconButton>
+      </Box>
     </Paper>
   );
 };

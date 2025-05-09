@@ -1,9 +1,9 @@
 'use client';
 import { useAuth } from '@/components/AuthProvider';
+import Sidebar from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Box, CircularProgress, Typography } from './muiImports';
-import Sidebar from '@/components/Sidebar';
 
 const Home = () => {
   const { user, loading } = useAuth();
