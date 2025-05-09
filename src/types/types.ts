@@ -1,45 +1,60 @@
+// No external types needed for now
+
 /**
- * Base user information that is always public to other users
- * Only id and displayName are required as they're essential for the app to function
+ * Basic user info available to all users
  */
-export interface PublicUser {
+export interface BaseUser {
   id: string;
+  username: string;
   displayName: string;
-  photoURL?: string;
-  status?: 'online' | 'offline' | 'away';
-  bio?: string; // Can be shared publicly if user chooses
+  avatarUrl?: string;
+  status: 'online' | 'offline' | 'away';
 }
 
 /**
- * Additional user information visible to users in shared chats
- * All fields are optional as users might want to restrict what chat participants can see
+ * Extended user info visible in chats
  */
-export interface ChatParticipantUser extends PublicUser {
+export interface ChatParticipantUser extends BaseUser {
   lastSeen?: Date;
-  lastTyping?: Date;
-  email?: string; // Optional email sharing with chat participants
-  timezone?: string; // Optional timezone sharing for coordination
+  currentActivity?: string;
 }
 
 /**
  * Extended user information visible to friends
- * Most fields are optional to allow granular privacy control
  */
 export interface FriendUser extends ChatParticipantUser {
-  mutualFriends?: number; // Optional: Some users might not want to share their connections
-  mutualChats?: number;
-  customNickname?: string;
-  friendshipDate: Date; // Required as it's fundamental to the friendship
-  sharedEmail?: boolean; // Indicates if email is shared with this friend
-  sharedPhone?: boolean; // Indicates if phone number is shared with this friend
-  sharedInterests?: string[];
-  sharedActivity?: {
-    // Optional activity sharing
-    recentlyActive?: boolean;
-    lastSeen?: Date;
-    currentChat?: string;
-    listeningTo?: string;
-    playing?: string;
+  nickname?: string;
+  friendshipDate: Date;
+  lastSeen?: Date;
+  currentActivity?: string;
+}
+
+/**
+ * Currently logged in user
+ */
+export interface CurrentUser extends BaseUser {
+  email: string;
+  createdAt: Date;
+
+  // Simple privacy settings
+  privacy: {
+    showStatus: boolean;
+    showLastSeen: boolean;
+    showActivity: boolean;
+  };
+
+  // Basic notification preferences
+  notifications: {
+    enabled: boolean;
+    sound: boolean;
+    muteUntil?: Date;
+  };
+
+  // Friend management
+  friends: {
+    list: FriendUser[];
+    pending: string[];
+    blocked: string[];
   };
 }
 
@@ -50,136 +65,56 @@ export interface Friendship {
   id: string;
   users: [string, string]; // IDs of the two users
   status: 'pending' | 'accepted' | 'blocked';
-  initiatedBy: string; // User ID who sent the request
   createdAt: Date;
-  acceptedAt?: Date;
-  customSettings?: {
-    sharePresence: boolean;
-    shareActivity: boolean;
-    notifyOnline: boolean;
-    priority: 'normal' | 'close' | 'best';
-  };
+  updatedAt?: Date;
+
+  // Basic privacy settings
+  showActivity: boolean;
+  showLastSeen: boolean;
 }
 
 /**
- * Complete user profile with private information
- * Only available for the currently authenticated user
- */
-export interface CurrentUser extends PublicUser {
-  email: string;
-  phoneNumber?: string;
-  settings: ChatSettings;
-  presence: {
-    lastSeen: Date;
-    lastActive: Date;
-    deviceType?: 'mobile' | 'desktop' | 'web';
-    showAsOnline: boolean;
-  };
-  notifications: {
-    token?: string;
-    enabled: boolean;
-    muteUntil?: Date;
-  };
-  friends: {
-    all: FriendUser[];
-    pending: {
-      sent: string[]; // IDs of users we've sent requests to
-      received: string[]; // IDs of users who sent us requests
-    };
-    blocked: string[]; // IDs of users we've blocked
-    settings: {
-      autoAccept: 'none' | 'mutualFriends' | 'all';
-      defaultCustomSettings: Friendship['customSettings'];
-    };
-  };
-  bio?: string;
-  interests?: string[];
-  timezone: string;
-  visibility: {
-    profile: 'public' | 'friends' | 'private';
-    lastSeen: 'everyone' | 'friends' | 'nobody';
-    status: 'everyone' | 'friends' | 'nobody';
-    email: 'everyone' | 'friends' | 'mutualFriends' | 'nobody';
-    phone: 'friends' | 'mutualFriends' | 'nobody';
-    interests: 'public' | 'friends' | 'nobody';
-    activity: 'everyone' | 'friends' | 'nobody';
-    timezone: 'everyone' | 'friends' | 'nobody';
-    mutuals: 'everyone' | 'friends' | 'nobody';
-  };
-}
-
-/**
- * Represents metadata about the message history in a chat
- * Used for pagination and quick stats without loading all messages
- */
-export interface ChatMessageMetadata {
-  totalMessages: number;
-  firstMessageDate?: Date;
-  lastMessageDate?: Date;
-}
-
-/**
- * Represents a paginated subset of messages
- * Used when loading messages in chunks rather than all at once
- * Cursors enable both forward and backward pagination
- */
-export interface MessagePage {
-  messages: Message[];
-  hasMore: boolean;
-  nextCursor?: string;
-  prevCursor?: string;
-}
-
-/**
- * Represents a chat conversation between users
- * Core chat data without the full message history
- */
-export interface Chat {
-  id: string;
-  type: 'direct' | 'group';
-  participants: {
-    userId: string;
-    role?: 'admin' | 'member';
-    joinedAt: Date;
-    user: ChatParticipantUser; // Only include participant-level user info
-  }[];
-  name?: string; // Optional: Only for group chats
-  createdAt: Date;
-  updatedAt: Date;
-  metadata: ChatMessageMetadata;
-  lastMessage?: Message; // Cache of the last message for quick access
-  unreadCount?: number;
-}
-
-/**
- * Represents a message within a chat
+ * Base message type
  */
 export interface Message {
   id: string;
   chatId: string;
   senderId: string;
-  content: {
-    type: 'text' | 'image' | 'file' | 'system';
-    text?: string;
-    fileURL?: string;
-    fileName?: string;
-    fileSize?: number;
-  };
-  status: 'sending' | 'sent' | 'delivered' | 'read' | 'error';
-  createdAt: Date;
-  updatedAt?: Date;
-  replyTo?: Message;
-  reactions?: MessageReaction[];
-  isEdited?: boolean;
+  content: string;
+  timestamp: Date;
+  edited?: boolean;
+  replyTo?: string; // ID of message being replied to
+  attachments?: {
+    type: 'image' | 'file';
+    url: string;
+    name: string;
+  }[];
 }
 
 /**
- * Represents a reaction to a message
+ * Chat metadata and settings
  */
-export interface MessageReaction {
-  userId: string;
-  emoji: string;
+export interface Chat {
+  id: string;
+  type: 'direct' | 'group';
+  name?: string; // Required for group chats
+  participants: {
+    userId: string;
+    role: 'admin' | 'member';
+    joinedAt: Date;
+  }[];
   createdAt: Date;
+  lastMessage?: Message;
+  unreadCount: number;
+}
+
+/**
+ * Message pagination response
+ */
+export interface MessagePage {
+  messages: Message[];
+  hasMore: boolean;
+  nextCursor?: string;
 }
 
 /**
