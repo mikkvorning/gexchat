@@ -8,7 +8,7 @@ import {
   ListItemText,
   Paper,
   TextField,
-} from '../app/muiImports';
+} from '../../app/muiImports';
 import SettingsIcon from '@mui/icons-material/Settings';
 
 const mockContactList = [
@@ -26,14 +26,12 @@ const Sidebar = () => {
 
   return (
     <Paper
-      elevation={2}
       sx={{
         width: 300,
         height: '100vh',
         borderRadius: 0,
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: 'background.paper',
         borderRight: 1,
         borderColor: 'divider',
         boxShadow: 1,

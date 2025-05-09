@@ -12,7 +12,7 @@ const cyanideTheme = createTheme({
       contrastText: '#000000',
     },
     background: {
-      paper: '#292929',
+      paper: '#191919',
       default: '#181818',
     },
     text: {
