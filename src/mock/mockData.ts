@@ -91,26 +91,93 @@ export const mockChats: Chat[] = [
     },
   },
   {
-    id: 'paddy_pub_group',
-    type: 'group',
-    name: "Paddy's Pub Legal Issues",
+    id: 'chat_mac',
+    type: 'direct',
     participants: [
-      { userId: 'lawyer', role: 'admin', joinedAt: new Date('2025-05-10') },
-      { userId: 'dennis', role: 'member', joinedAt: new Date('2025-05-10') },
-      { userId: 'mac', role: 'member', joinedAt: new Date('2025-05-10') },
-      { userId: 'charlie', role: 'member', joinedAt: new Date('2025-05-10') },
+      { userId: 'lawyer', role: 'member', joinedAt: new Date('2025-05-11') },
+      { userId: 'mac', role: 'member', joinedAt: new Date('2025-05-11') },
+    ],
+    createdAt: new Date('2025-05-11'),
+    unreadCount: 3,
+    lastMessage: {
+      id: 'msg_mac_latest',
+      chatId: 'chat_mac',
+      senderId: 'mac',
+      content:
+        "I've performed an ocular patdown and assessed that this contract is NOT a security risk.",
+      timestamp: new Date('2025-05-13T14:20:00'),
+    },
+  },
+  {
+    id: 'chat_dee',
+    type: 'direct',
+    participants: [
+      { userId: 'lawyer', role: 'member', joinedAt: new Date('2025-05-10') },
       { userId: 'dee', role: 'member', joinedAt: new Date('2025-05-10') },
-      { userId: 'frank', role: 'member', joinedAt: new Date('2025-05-10') },
     ],
     createdAt: new Date('2025-05-10'),
-    unreadCount: 5,
+    unreadCount: 0,
     lastMessage: {
-      id: 'msg_group_latest',
-      chatId: 'paddy_pub_group',
+      id: 'msg_dee_latest',
+      chatId: 'chat_dee',
+      senderId: 'dee',
+      content:
+        "I'm not paying damages for that comedy club incident. Those people should thank me for my sweet jokes!",
+      timestamp: new Date('2025-05-13T15:45:00'),
+    },
+  },
+  {
+    id: 'chat_frank',
+    type: 'direct',
+    participants: [
+      { userId: 'lawyer', role: 'member', joinedAt: new Date('2025-05-09') },
+      { userId: 'frank', role: 'member', joinedAt: new Date('2025-05-09') },
+    ],
+    createdAt: new Date('2025-05-09'),
+    unreadCount: 4,
+    lastMessage: {
+      id: 'msg_frank_latest',
+      chatId: 'chat_frank',
       senderId: 'frank',
       content:
-        "I don't know how many years on this Earth I got left. I'm gonna get real weird with these lawsuits.",
-      timestamp: new Date('2025-05-13T11:00:00'),
+        'Listen, about that toe knife incident... can we settle this out of court with an egg?',
+      timestamp: new Date('2025-05-13T16:30:00'),
+    },
+  },
+  {
+    id: 'chat_cricket',
+    type: 'direct',
+    participants: [
+      { userId: 'lawyer', role: 'member', joinedAt: new Date('2025-05-08') },
+      { userId: 'cricket', role: 'member', joinedAt: new Date('2025-05-08') },
+    ],
+    createdAt: new Date('2025-05-08'),
+    unreadCount: 1,
+    lastMessage: {
+      id: 'msg_cricket_latest',
+      chatId: 'chat_cricket',
+      senderId: 'cricket',
+      content:
+        "Can we sue Paddy's Pub for my facial disfigurement? I have... documentation.",
+      timestamp: new Date('2025-05-13T17:15:00'),
+    },
+  },
+  {
+    id: 'chat_waitress',
+    type: 'direct',
+    participants: [
+      { userId: 'lawyer', role: 'member', joinedAt: new Date('2025-05-07') },
+      { userId: 'waitress', role: 'member', joinedAt: new Date('2025-05-07') },
+    ],
+    createdAt: new Date('2025-05-07'),
+    unreadCount: 2,
+    lastMessage: {
+      id: 'msg_waitress_latest',
+      chatId: 'chat_waitress',
+      senderId: 'waitress',
+      content:
+        "I need ANOTHER restraining order against Charlie. He's been leaving cats outside my door again.",
+      timestamp: new Date('2025-05-13T18:00:00'),
     },
   },
 ];
@@ -153,38 +220,134 @@ export const mockMessages: { [chatId: string]: Message[] } = {
       timestamp: new Date('2025-05-13T09:15:00'),
     },
   ],
-  paddy_pub_group: [
+  chat_mac: [
     {
-      id: 'group_1',
-      chatId: 'paddy_pub_group',
-      senderId: 'lawyer',
-      content:
-        "As your legal counsel, I must advise against your plan to serve 'riot punch' at the children's beauty pageant.",
-      timestamp: new Date('2025-05-13T10:30:00'),
-    },
-    {
-      id: 'group_2',
-      chatId: 'paddy_pub_group',
+      id: 'mac_1',
+      chatId: 'chat_mac',
       senderId: 'mac',
       content:
-        'First of all, through God all things are possible, so jot that down.',
-      timestamp: new Date('2025-05-13T10:35:00'),
+        "As head of security at Paddy's, I need legal advice about my right to perform ocular pat-downs.",
+      timestamp: new Date('2025-05-13T14:00:00'),
     },
     {
-      id: 'group_3',
-      chatId: 'paddy_pub_group',
+      id: 'mac_2',
+      chatId: 'chat_mac',
+      senderId: 'lawyer',
+      content:
+        "That's not a real security position, and no, you cannot detain people based on their 'threat level'.",
+      timestamp: new Date('2025-05-13T14:10:00'),
+    },
+    {
+      id: 'mac_3',
+      chatId: 'chat_mac',
+      senderId: 'mac',
+      content:
+        "I've performed an ocular patdown and assessed that this contract is NOT a security risk.",
+      timestamp: new Date('2025-05-13T14:20:00'),
+    },
+  ],
+  chat_dee: [
+    {
+      id: 'dee_1',
+      chatId: 'chat_dee',
       senderId: 'dee',
       content:
-        "I'll get my brother's girlfriend. She's a lawyer... or at least she handled my thing with the billboard.",
-      timestamp: new Date('2025-05-13T10:45:00'),
+        'Hey, quick question about intellectual property - can I sue someone for stealing my Martina Martinez character?',
+      timestamp: new Date('2025-05-13T15:30:00'),
     },
     {
-      id: 'group_4',
-      chatId: 'paddy_pub_group',
+      id: 'dee_2',
+      chatId: 'chat_dee',
+      senderId: 'lawyer',
+      content:
+        "Ms. Reynolds, we've discussed this. Those characters are highly inappropriate and potentially legally actionable AGAINST you.",
+      timestamp: new Date('2025-05-13T15:35:00'),
+    },
+    {
+      id: 'dee_3',
+      chatId: 'chat_dee',
+      senderId: 'dee',
+      content:
+        "I'm not paying damages for that comedy club incident. Those people should thank me for my sweet jokes!",
+      timestamp: new Date('2025-05-13T15:45:00'),
+    },
+  ],
+  chat_frank: [
+    {
+      id: 'frank_1',
+      chatId: 'chat_frank',
       senderId: 'frank',
       content:
-        "I don't know how many years on this Earth I got left. I'm gonna get real weird with these lawsuits.",
-      timestamp: new Date('2025-05-13T11:00:00'),
+        "Need legal advice about my business - Wolf Cola. Some people are saying it's the official drink of Boko Haram?",
+      timestamp: new Date('2025-05-13T16:00:00'),
+    },
+    {
+      id: 'frank_2',
+      chatId: 'chat_frank',
+      senderId: 'lawyer',
+      content:
+        "Mr. Reynolds, cease all operations immediately. And no, we cannot 'write off' the rum ham incident as a business expense.",
+      timestamp: new Date('2025-05-13T16:15:00'),
+    },
+    {
+      id: 'frank_3',
+      chatId: 'chat_frank',
+      senderId: 'frank',
+      content:
+        'Listen, about that toe knife incident... can we settle this out of court with an egg?',
+      timestamp: new Date('2025-05-13T16:30:00'),
+    },
+  ],
+  chat_cricket: [
+    {
+      id: 'cricket_1',
+      chatId: 'chat_cricket',
+      senderId: 'cricket',
+      content:
+        'Hey, remember when I was a priest? Before the gang ruined my life? Good times...',
+      timestamp: new Date('2025-05-13T17:00:00'),
+    },
+    {
+      id: 'cricket_2',
+      chatId: 'chat_cricket',
+      senderId: 'lawyer',
+      content:
+        'Mr. Cricket, we might have a strong personal injury case here. Several, actually.',
+      timestamp: new Date('2025-05-13T17:10:00'),
+    },
+    {
+      id: 'cricket_3',
+      chatId: 'chat_cricket',
+      senderId: 'cricket',
+      content:
+        "Can we sue Paddy's Pub for my facial disfigurement? I have... documentation.",
+      timestamp: new Date('2025-05-13T17:15:00'),
+    },
+  ],
+  chat_waitress: [
+    {
+      id: 'waitress_1',
+      chatId: 'chat_waitress',
+      senderId: 'waitress',
+      content:
+        "I need to update my restraining order against Charlie. He's been leaving love letters in my apartment.",
+      timestamp: new Date('2025-05-13T17:45:00'),
+    },
+    {
+      id: 'waitress_2',
+      chatId: 'chat_waitress',
+      senderId: 'lawyer',
+      content:
+        "I'll draft a new order right away. How did he get into your apartment this time?",
+      timestamp: new Date('2025-05-13T17:50:00'),
+    },
+    {
+      id: 'waitress_3',
+      chatId: 'chat_waitress',
+      senderId: 'waitress',
+      content:
+        "I need ANOTHER restraining order against Charlie. He's been leaving cats outside my door again.",
+      timestamp: new Date('2025-05-13T18:00:00'),
     },
   ],
 };
