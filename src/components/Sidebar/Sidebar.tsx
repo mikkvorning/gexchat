@@ -10,20 +10,14 @@ import {
   TextField,
 } from '../../app/muiImports';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { mockContacts } from '../../mock/mockData';
 
-const mockContactList = [
-  { id: 1, name: 'Dennis Reynolds' },
-  { id: 2, name: 'Charlie' },
-  { id: 3, name: 'Mac' },
-  { id: 4, name: 'Dee' },
-  { id: 5, name: 'Frank' },
-  { id: 6, name: 'Rickety Cricket' },
-  { id: 7, name: 'Waitress' },
-];
+interface SidebarProps {
+  onContactSelect: (contactId: string) => void;
+}
 
-const Sidebar = () => {
-  const [filteredContacts, setFilteredContacts] = useState(mockContactList);
-
+const Sidebar = ({ onContactSelect }: SidebarProps) => {
+  const [filteredContacts, setFilteredContacts] = useState(mockContacts);
   return (
     <Paper
       sx={{
@@ -38,9 +32,8 @@ const Sidebar = () => {
       }}
     >
       <Box flex={1} display='flex' flexDirection='column' p={2}>
-        {/* Input search field with debounce that filters contacts */}
         <TextField
-          label='Search messages'
+          label='Search contacts'
           variant='outlined'
           type='search'
           size='small'
@@ -48,8 +41,8 @@ const Sidebar = () => {
           onChange={(e) => {
             const value = e.target.value.toLowerCase();
             setFilteredContacts(
-              mockContactList.filter((contact) =>
-                contact.name.toLowerCase().includes(value)
+              mockContacts.filter((contact) =>
+                contact.displayName.toLowerCase().includes(value)
               )
             );
           }}
@@ -57,20 +50,46 @@ const Sidebar = () => {
         <List>
           {filteredContacts.map((contact) => (
             <ListItem
-              component='div'
-              sx={{ cursor: 'pointer', gap: 1 }}
+              onClick={() => onContactSelect(contact.id)}
+              sx={{
+                cursor: 'pointer',
+                gap: 1,
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
               key={contact.id}
             >
               <Avatar
-                alt={contact.name}
-                src={`https://api.adorable.io/avatars/40/${contact.id}.png`}
+                alt={contact.displayName}
                 sx={{
-                  bgcolor: `#${Math.floor(Math.random() * 16777215).toString(
-                    16
-                  )}`,
+                  position: 'relative',
+                  '&::after':
+                    contact.status === 'online'
+                      ? {
+                          content: '""',
+                          position: 'absolute',
+                          bottom: 2,
+                          right: 2,
+                          width: 8,
+                          height: 8,
+                          bgcolor: 'success.main',
+                          borderRadius: '50%',
+                          border: '2px solid #fff',
+                        }
+                      : undefined,
                 }}
               />
-              <ListItemText primary={contact.name} />
+              <ListItemText
+                primary={contact.displayName}
+                secondary={
+                  contact.status === 'online'
+                    ? 'Online'
+                    : contact.status === 'away'
+                    ? 'Away'
+                    : 'Offline'
+                }
+              />
             </ListItem>
           ))}
         </List>
