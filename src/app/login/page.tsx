@@ -1,11 +1,13 @@
 'use client';
 
 import { useAuth } from '@/components/AuthProvider';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  updateProfile,
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Formik, FormikHelpers } from 'formik';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -16,6 +18,7 @@ interface FormValues {
   email: string;
   password: string;
   confirmPassword?: string;
+  nickname?: string;
 }
 
 const loginSchema = Yup.object().shape({
@@ -23,7 +26,10 @@ const loginSchema = Yup.object().shape({
     .email('Invalid email address')
     .required('Email is required'),
   password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
+    .min(8, 'Password must be at least 8 characters')
+    .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .matches(/[0-9]/, 'Password must contain at least one number')
     .required('Password is required'),
 });
 
@@ -32,6 +38,9 @@ const signupSchema = loginSchema.shape({
     [Yup.ref('password')],
     'Passwords must match'
   ),
+  nickname: Yup.string()
+    .required('Nickname is required')
+    .max(30, 'Nickname may not exceed 30 characters'),
 });
 
 const Login = () => {
@@ -39,11 +48,10 @@ const Login = () => {
   const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
-
   const initialValues = {
     email: '',
     password: '',
-    ...(isSignup ? { confirmPassword: '' } : {}),
+    ...(isSignup ? { confirmPassword: '', nickname: '' } : {}),
   };
 
   const handleFormSwitch = () => {
@@ -60,11 +68,28 @@ const Login = () => {
     try {
       let userCredential;
       if (isSignup) {
+        // Create the user account first
         userCredential = await createUserWithEmailAndPassword(
           auth,
           values.email,
           values.password
         );
+
+        const nickname = values.nickname || values.email.split('@')[0];
+
+        // Update Firebase Auth profile
+        await updateProfile(userCredential.user, {
+          displayName: nickname,
+        });
+
+        // Save user data to Firestore
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          email: values.email,
+          nickname: nickname,
+          createdAt: new Date().toISOString(),
+          lastSeen: new Date().toISOString(),
+          status: 'online',
+        });
       } else {
         userCredential = await signInWithEmailAndPassword(
           auth,
@@ -137,6 +162,21 @@ const Login = () => {
               autoComplete='off'
               onSubmit={handleSubmit}
             >
+              {isSignup && (
+                <Box mb={3}>
+                  <TextField
+                    fullWidth
+                    id='nickname'
+                    name='nickname'
+                    label='Nickname'
+                    value={values.nickname}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.nickname && Boolean(errors.nickname)}
+                    helperText={touched.nickname && errors.nickname}
+                  />
+                </Box>
+              )}
               <Box mb={3}>
                 <TextField
                   fullWidth

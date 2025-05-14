@@ -2,21 +2,25 @@ import { useState } from 'react';
 import {
   Avatar,
   Box,
+  Button,
   IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   TextField,
+  Typography,
 } from '../../app/muiImports';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { mockContacts } from '../../mock/mockData';
+import { useAuth } from '../AuthProvider';
 
 interface SidebarProps {
   onContactSelect: (contactId: string) => void;
 }
 
 const Sidebar = ({ onContactSelect }: SidebarProps) => {
+  const { user } = useAuth();
   const [filteredContacts, setFilteredContacts] = useState(mockContacts);
   return (
     <Paper
@@ -96,7 +100,10 @@ const Sidebar = ({ onContactSelect }: SidebarProps) => {
       </Box>
 
       {/* Bottom section for settings */}
-      <Box p={2} display='flex' justifyContent='flex-end'>
+      <Box p={2} display='flex' justifyContent='space-between'>
+        <Button variant='text' color='primary'>
+          <Typography variant='body2'>{user?.email}</Typography>
+        </Button>
         <IconButton>
           <SettingsIcon />
         </IconButton>
