@@ -16,6 +16,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings } from './PrivacySettings';
 import { useState } from 'react';
+import { LogoutButton } from '../LogoutButton';
 
 const settingsPages = [
   { id: 'profile', label: 'Profile' },
@@ -90,6 +91,10 @@ export const Settings = ({ open, onClose }: SettingsProps) => {
               </ListItem>
             ))}
           </List>
+          {/* Log out button */}
+          <Box sx={{ p: 2 }}>
+            <LogoutButton fullWidth />
+          </Box>
         </Box>
 
         {/* Content Area */}

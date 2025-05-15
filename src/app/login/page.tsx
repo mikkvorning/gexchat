@@ -96,16 +96,14 @@ const Login = () => {
           values.email,
           values.password
         );
-      }
-
-      // Set the user in the auth context
+      } // Set the user in the auth context
       setUser(userCredential.user);
 
-      // Set the session cookie
-      document.cookie = `session=${userCredential.user}; path=/;`;
+      // Set the session cookie properly with the user's ID
+      document.cookie = `session=${userCredential.user.uid}; path=/;`;
 
-      // Redirect to the home page
-      router.push('/');
+      // Redirect to the home page using replace to prevent back navigation
+      router.replace('/');
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error
@@ -257,6 +255,9 @@ const Login = () => {
                 color: 'primary.main',
                 textDecoration: 'underline',
                 cursor: 'pointer',
+                mx: 1,
+                position: 'relative',
+                top: -2,
               }}
             >
               {isSignup ? 'Sign in' : 'Sign up'}
