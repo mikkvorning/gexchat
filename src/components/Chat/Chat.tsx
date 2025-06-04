@@ -1,4 +1,4 @@
-import { Box, Typography } from '../../app/muiImports';
+import { Box, Paper, TextField, Typography } from '../../app/muiImports';
 import { mockChats, mockMessages, mockContacts } from '../../mock/mockData';
 
 interface ChatProps {
@@ -98,15 +98,20 @@ const Chat = ({ selectedContactId }: ChatProps) => {
       </Box>
 
       {/* Chat input */}
-      <Box
+      <Paper
         sx={{
+          borderRadius: 0,
           p: 2,
-          borderTop: 1,
-          borderColor: 'divider',
         }}
       >
-        {/* We'll implement the ChatInput component later */}
-      </Box>
+        <TextField
+          variant='outlined'
+          placeholder='Type a message...'
+          fullWidth
+          multiline
+          maxRows={4}
+        />
+      </Paper>
     </Box>
   );
 };
