@@ -168,7 +168,9 @@ const Sidebar = ({ onContactSelect }: SidebarProps) => {
         {/* Bottom section for settings */}
         <Box p={2} display='flex' justifyContent='space-between'>
           <Button variant='text' color='primary'>
-            <Typography variant='body2'>{user?.email}</Typography>
+            <Typography variant='h6'>
+              {user?.displayName || user?.email}
+            </Typography>
           </Button>
           <IconButton onClick={() => setSettingsOpen(true)}>
             <SettingsIcon />
