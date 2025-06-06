@@ -58,3 +58,21 @@ export const shouldUseWhiteText = (backgroundHex: string) => {
   const L = getRelativeLuminance(backgroundHex);
   return L < 0.5; // Use white text if background is dark
 };
+
+/**
+ * Generates a stable color for an avatar based on an id string.
+ * Uses a simple hash function to ensure the same id always gets the same color.
+ *
+ * @example
+ * generateAvatarColor("user123") // returns a hex color like "#4a7b3c"
+ */
+export const generateAvatarColor = (id: string) => {
+  // Use a simpler hash function that's stable between renders
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  // Get a positive hex color
+  return `#${Math.abs(hash).toString(16).slice(0, 6).padEnd(6, '0')}`;
+};
