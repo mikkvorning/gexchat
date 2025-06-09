@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Box, IconButton, Paper } from '../../app/muiImports';
 import SettingsIcon from '@mui/icons-material/Settings';
+import React, { useState } from 'react';
+import { Box, Button, IconButton, Paper } from '../../app/muiImports';
 import { mockContacts } from '../../mock/mockData';
+import { useAuth } from '../AuthProvider';
 import { Settings } from '../Settings/Settings';
-import ChatSearch from './ChatSearch/ChatSearch';
 import ChatList from './ChatList/ChatList';
+import ChatSearch from './ChatSearch/ChatSearch';
 import { SidebarProvider } from './SidebarProvider';
 
 interface SidebarProps {
@@ -13,6 +14,7 @@ interface SidebarProps {
 
 const SidebarContent: React.FC<SidebarProps> = ({ onContactSelect }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <>
@@ -32,9 +34,19 @@ const SidebarContent: React.FC<SidebarProps> = ({ onContactSelect }) => {
           <ChatSearch />
           <ChatList onContactSelect={onContactSelect} />
         </Box>
-
         {/* Settings Button */}
-        <Box p={2} borderTop={1} borderColor='divider'>
+        <Box
+          p={2}
+          borderTop={1}
+          borderColor='divider'
+          display='flex'
+          justifyContent='space-between'
+        >
+          {/* Display username */}
+          <Button variant='text' size='large'>
+            {user?.displayName || user?.email || 'User'}
+          </Button>
+
           <IconButton
             onClick={() => setSettingsOpen(true)}
             sx={{ borderRadius: 1 }}
@@ -44,7 +56,6 @@ const SidebarContent: React.FC<SidebarProps> = ({ onContactSelect }) => {
           </IconButton>
         </Box>
       </Paper>
-
       <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
