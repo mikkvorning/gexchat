@@ -42,12 +42,11 @@ export interface CurrentUser extends BaseUser {
     showLastSeen: boolean;
     showActivity: boolean;
   };
-
   // Basic notification preferences
   notifications: {
     enabled: boolean;
     sound: boolean;
-    muteUntil?: Date;
+    muteUntil?: Date | null;
   };
 
   // Friend management

@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/components/AuthProvider';
 import { auth, db } from '@/lib/firebase';
+import type { CurrentUser } from '@/types/types';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -83,13 +84,30 @@ const Login = () => {
         });
 
         // Save user data to Firestore
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
+        const userDoc: CurrentUser = {
+          id: userCredential.user.uid,
           email: values.email,
-          nickname: nickname,
-          createdAt: new Date().toISOString(),
-          lastSeen: new Date().toISOString(),
+          username: nickname, // using nickname as username for now
+          displayName: nickname,
+          avatarUrl: '',
           status: 'online',
-        });
+          createdAt: new Date(),
+          privacy: {
+            showStatus: true,
+            showLastSeen: true,
+            showActivity: true,
+          },          notifications: {
+            enabled: true,
+            sound: true,
+            muteUntil: null,
+          },
+          friends: {
+            list: [],
+            pending: [],
+            blocked: [],
+          },
+        };
+        await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
       } else {
         userCredential = await signInWithEmailAndPassword(
           auth,
