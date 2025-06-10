@@ -11,6 +11,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  Stack,
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -79,6 +80,7 @@ const addContact = async ({
 
 const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUser, setSelectedUser] = useState<SearchResult | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -91,24 +93,53 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     queryFn: () => searchUsers(searchTerm, user?.uid ?? ''),
     enabled: false,
   });
-
   const { mutate: handleAddContact, isPending: isAdding } = useMutation({
     mutationFn: ({ contactId }: { contactId: string }) =>
       addContact({ userId: user?.uid ?? '', contactId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts', user?.uid] });
-      onClose();
+      handleDialogClose();
     },
   });
+  const handleStartChat = () => {
+    if (!selectedUser) return;
+    // TODO: Implement start chat functionality
+    console.log('Starting chat with:', selectedUser.displayName);
+    handleDialogClose();
+  };
 
+  const handleViewProfile = () => {
+    if (!selectedUser) return;
+    // TODO: Implement view profile functionality
+    console.log('Viewing profile of:', selectedUser.displayName);
+    handleDialogClose();
+  };
+
+  const handleAddAsContact = () => {
+    if (!selectedUser) return;
+    handleAddContact({ contactId: selectedUser.id });
+  };
+  const handleUserSelect = (result: SearchResult) => {
+    setSelectedUser(result);
+  };
   const onSearch = () => {
     if (searchTerm) refetch();
   };
 
+  const handleDialogClose = () => {
+    setSelectedUser(null);
+    setSearchTerm('');
+    onClose();
+  };
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth='xs'>
-      <DialogTitle>Search & Add Contacts</DialogTitle>
-      <DialogContent>
+    <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='xs'>
+      {' '}
+      <DialogTitle>
+        {selectedUser
+          ? `Selected: ${selectedUser.displayName}`
+          : 'Search & Add Contacts'}
+      </DialogTitle>{' '}
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <TextField
           fullWidth
           margin='dense'
@@ -123,26 +154,60 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
         <Button
           onClick={onSearch}
           disabled={isFetching || !searchTerm}
-          sx={{ mt: 1, mb: 2 }}
           variant='outlined'
           fullWidth
         >
           Search
         </Button>
+
+        <Stack flex={1} flexDirection={'row'} gap={1}>
+          <Button
+            variant='contained'
+            color='primary'
+            onClick={handleStartChat}
+            disabled={!selectedUser}
+            fullWidth
+          >
+            Chat
+          </Button>
+          <Button
+            variant='outlined'
+            color='primary'
+            onClick={handleViewProfile}
+            disabled={!selectedUser}
+            fullWidth
+          >
+            Profile
+          </Button>
+          <Button
+            variant='outlined'
+            color='secondary'
+            onClick={handleAddAsContact}
+            disabled={!selectedUser || isAdding}
+            fullWidth
+          >
+            {isAdding ? 'Adding...' : 'Contact'}
+          </Button>
+        </Stack>
+
         <List>
           {searchResults.map((result) => (
             <ListItem
               key={result.id}
-              secondaryAction={
-                <Button
-                  disabled={isAdding}
-                  variant='contained'
-                  color='primary'
-                  onClick={() => handleAddContact({ contactId: result.id })}
-                >
-                  {isAdding ? 'Adding...' : 'Add'}
-                </Button>
-              }
+              onClick={() => handleUserSelect(result)}
+              sx={{
+                cursor: 'pointer',
+                backgroundColor:
+                  selectedUser?.id === result.id
+                    ? 'action.selected'
+                    : 'transparent',
+                '&:hover': {
+                  backgroundColor:
+                    selectedUser?.id === result.id
+                      ? 'action.selected'
+                      : 'action.hover',
+                },
+              }}
             >
               <ListItemText
                 primary={result.displayName}
@@ -158,7 +223,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
         </List>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color='inherit'>
+        <Button onClick={handleDialogClose} color='inherit'>
           Cancel
         </Button>
       </DialogActions>

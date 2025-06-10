@@ -96,7 +96,8 @@ const Login = () => {
             showStatus: true,
             showLastSeen: true,
             showActivity: true,
-          },          notifications: {
+          },
+          notifications: {
             enabled: true,
             sound: true,
             muteUntil: null,
