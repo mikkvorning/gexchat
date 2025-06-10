@@ -8,11 +8,13 @@ import {
   TextField,
   Button,
   CircularProgress,
-  List,
-  ListItem,
-  ListItemText,
-  Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography,
+  Box,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -80,7 +82,7 @@ const addContact = async ({
 
 const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<SearchResult | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -101,45 +103,32 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
       handleDialogClose();
     },
   });
-  const handleStartChat = () => {
-    if (!selectedUser) return;
+  const handleStartChat = (userId: string, displayName: string) => {
     // TODO: Implement start chat functionality
-    console.log('Starting chat with:', selectedUser.displayName);
+    console.log('Starting chat with:', displayName);
     handleDialogClose();
   };
 
-  const handleViewProfile = () => {
-    if (!selectedUser) return;
-    // TODO: Implement view profile functionality
-    console.log('Viewing profile of:', selectedUser.displayName);
-    handleDialogClose();
+  const handleAddAsContact = (userId: string) => {
+    handleAddContact({ contactId: userId });
   };
 
-  const handleAddAsContact = () => {
-    if (!selectedUser) return;
-    handleAddContact({ contactId: selectedUser.id });
-  };
-  const handleUserSelect = (result: SearchResult) => {
-    setSelectedUser(result);
-  };
+  const handleAccordionChange =
+    (userId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+      setExpandedUserId(isExpanded ? userId : null);
+    };
   const onSearch = () => {
     if (searchTerm) refetch();
   };
-
   const handleDialogClose = () => {
-    setSelectedUser(null);
+    setExpandedUserId(null);
     setSearchTerm('');
     onClose();
   };
   return (
-    <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='xs'>
-      {' '}
-      <DialogTitle>
-        {selectedUser
-          ? `Selected: ${selectedUser.displayName}`
-          : 'Search & Add Contacts'}
-      </DialogTitle>{' '}
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
+      <DialogTitle>Search & Add Contacts</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TextField
           fullWidth
           margin='dense'
@@ -160,67 +149,77 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
           Search
         </Button>
 
-        <Stack flex={1} flexDirection={'row'} gap={1}>
-          <Button
-            variant='contained'
-            color='primary'
-            onClick={handleStartChat}
-            disabled={!selectedUser}
-            fullWidth
-          >
-            Chat
-          </Button>
-          <Button
-            variant='outlined'
-            color='primary'
-            onClick={handleViewProfile}
-            disabled={!selectedUser}
-            fullWidth
-          >
-            Profile
-          </Button>
-          <Button
-            variant='outlined'
-            color='secondary'
-            onClick={handleAddAsContact}
-            disabled={!selectedUser || isAdding}
-            fullWidth
-          >
-            {isAdding ? 'Adding...' : 'Contact'}
-          </Button>
-        </Stack>
-
-        <List>
+        <Box sx={{ mt: 1 }}>
           {searchResults.map((result) => (
-            <ListItem
+            <Accordion
               key={result.id}
-              onClick={() => handleUserSelect(result)}
-              sx={{
-                cursor: 'pointer',
-                backgroundColor:
-                  selectedUser?.id === result.id
-                    ? 'action.selected'
-                    : 'transparent',
-                '&:hover': {
-                  backgroundColor:
-                    selectedUser?.id === result.id
-                      ? 'action.selected'
-                      : 'action.hover',
-                },
-              }}
+              expanded={expandedUserId === result.id}
+              onChange={handleAccordionChange(result.id)}
+              sx={{ mb: 1 }}
             >
-              <ListItemText
-                primary={result.displayName}
-                secondary={result.email}
-              />
-            </ListItem>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls={`panel-${result.id}-content`}
+                id={`panel-${result.id}-header`}
+              >
+                <Typography variant='subtitle1' sx={{ fontWeight: 'medium' }}>
+                  {result.displayName}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box>
+                    <Typography
+                      variant='body2'
+                      color='text.secondary'
+                      gutterBottom
+                    >
+                      Profile Information
+                    </Typography>
+                    <Typography variant='body1' sx={{ mb: 1 }}>
+                      <strong>Name:</strong> {result.displayName}
+                    </Typography>
+                    <Typography variant='body1' sx={{ mb: 1 }}>
+                      <strong>Email:</strong> {result.email}
+                    </Typography>
+                    {/* Add more profile fields here as needed */}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                    <Button
+                      variant='contained'
+                      color='primary'
+                      onClick={() =>
+                        handleStartChat(result.id, result.displayName)
+                      }
+                      fullWidth
+                    >
+                      Start Chat
+                    </Button>
+                    <Button
+                      variant='outlined'
+                      color='secondary'
+                      onClick={() => handleAddAsContact(result.id)}
+                      disabled={isAdding}
+                      fullWidth
+                    >
+                      {isAdding ? 'Adding...' : 'Add Friend'}
+                    </Button>
+                  </Box>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
           ))}
           {searchResults.length === 0 && searchTerm && !isFetching && (
-            <ListItem>
-              <ListItemText primary='No users found' />
-            </ListItem>
+            <Typography
+              variant='body2'
+              color='text.secondary'
+              sx={{ textAlign: 'center', py: 2 }}
+            >
+              No users found
+            </Typography>
           )}
-        </List>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleDialogClose} color='inherit'>
