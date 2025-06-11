@@ -1,12 +1,43 @@
 import { Box, Paper, TextField, Typography } from '../../app/muiImports';
 import { mockChats, mockMessages, mockContacts } from '../../mock/mockData';
+import { useEffect, useRef } from 'react';
 
 interface ChatProps {
-  selectedContactId?: string;
+  selectedChatId?: string;
 }
 
-const Chat = ({ selectedContactId }: ChatProps) => {
-  if (!selectedContactId) {
+const Chat = ({ selectedChatId }: ChatProps) => {
+  const messageInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the message input when a chat is selected
+  useEffect(() => {
+    if (selectedChatId && messageInputRef.current) {
+      messageInputRef.current.focus();
+    }
+  }, [selectedChatId]);
+
+  if (!selectedChatId) {
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {' '}
+        <Typography variant='h6' color='text.secondary'>
+          Select a chat to start chatting
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Find chat by ID
+  const chat = mockChats.find((c) => c.id === selectedChatId);
+
+  if (!chat) {
     return (
       <Box
         sx={{
@@ -17,20 +48,18 @@ const Chat = ({ selectedContactId }: ChatProps) => {
         }}
       >
         <Typography variant='h6' color='text.secondary'>
-          Select a contact to start chatting
+          Chat not found
         </Typography>
       </Box>
     );
   }
 
-  const chat = mockChats.find(
-    (c) =>
-      c.type === 'direct' &&
-      c.participants.some((p) => p.userId === selectedContactId)
+  // Get other participant for display name (for direct chats)
+  const otherParticipant = chat.participants.find(
+    (p) => p.userId !== 'lawyer' // Assuming current user is 'lawyer'
   );
-
-  const contact = mockContacts.find((c) => c.id === selectedContactId);
-  const messages = chat ? mockMessages[chat.id] : [];
+  const contact = mockContacts.find((c) => c.id === otherParticipant?.userId);
+  const messages = mockMessages[chat.id] || [];
 
   return (
     <Box
@@ -104,7 +133,9 @@ const Chat = ({ selectedContactId }: ChatProps) => {
           p: 2,
         }}
       >
+        {' '}
         <TextField
+          ref={messageInputRef}
           variant='outlined'
           placeholder='Type a message...'
           fullWidth

@@ -10,6 +10,7 @@ export { default as Chip } from '@mui/material/Chip';
 export { default as Avatar } from '@mui/material/Avatar';
 export { default as Stack } from '@mui/material/Stack';
 export { default as Divider } from '@mui/material/Divider';
+export { default as Badge } from '@mui/material/Badge';
 export { default as Card } from '@mui/material/Card';
 export { default as CardActions } from '@mui/material/CardActions';
 export { default as CardContent } from '@mui/material/CardContent';

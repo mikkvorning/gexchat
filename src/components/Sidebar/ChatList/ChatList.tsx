@@ -5,100 +5,192 @@ import {
   ListItem,
   ListItemText,
   Typography,
+  Badge,
+  Box,
 } from '../../../app/muiImports';
-import { mockContacts } from '../../../mock/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getUserChats } from '../../../lib/chatService';
+import { useAuth } from '../../AuthProvider';
 import { shouldUseWhiteText, generateAvatarColor } from '../../../utils/colors';
-import { useSidebar } from '../SidebarProvider';
+import { ChatSummary } from '../../../types/types';
 
 interface ChatListProps {
-  onContactSelect: (contactId: string) => void;
+  onChatSelect: (chatId: string) => void;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ onContactSelect }) => {
-  const { filteredContacts } = useSidebar();
+const ChatList: React.FC<ChatListProps> = ({ onChatSelect }) => {
+  const { user } = useAuth();
 
-  // Generate stable color mappings that persist between renders
-  const contactColors = useMemo(() => {
-    return mockContacts.reduce(
-      (acc, contact) => ({
-        ...acc,
-        [contact.id]: generateAvatarColor(contact.id),
-      }),
-      {} as Record<string, string>
+  const {
+    data: chats = [],
+    isLoading,
+    error,
+  } = useQuery<ChatSummary[]>({
+    queryKey: ['userChats', user?.uid],
+    queryFn: () => getUserChats(user?.uid ?? ''),
+    enabled: !!user?.uid,
+  });
+
+  // Generate stable color mappings for users
+  const userColors = useMemo(() => {
+    const colors: Record<string, string> = {};
+    chats.forEach((chat) => {
+      chat.otherParticipants.forEach((participant) => {
+        if (!colors[participant.id]) {
+          colors[participant.id] = generateAvatarColor(participant.id);
+        }
+      });
+    });
+    return colors;
+  }, [chats]);
+
+  const getChatDisplayName = (chat: ChatSummary): string => {
+    if (chat.type === 'group' && chat.name) {
+      return chat.name;
+    }
+    if (chat.otherParticipants.length > 0) {
+      return chat.otherParticipants[0].displayName;
+    }
+    return 'Unknown Chat';
+  };
+
+  const getChatAvatar = (chat: ChatSummary) => {
+    if (chat.type === 'group') {
+      return (
+        <Avatar sx={{ bgcolor: 'primary.main', color: 'white' }}>G</Avatar>
+      );
+    }
+
+    if (chat.otherParticipants.length > 0) {
+      const participant = chat.otherParticipants[0];
+      const color = userColors[participant.id];
+      return (
+        <Avatar
+          sx={{
+            bgcolor: color,
+            color: shouldUseWhiteText(color) ? 'white' : 'black',
+          }}
+        >
+          {participant.displayName[0].toUpperCase()}
+        </Avatar>
+      );
+    }
+
+    return <Avatar>?</Avatar>;
+  };
+
+  const formatLastMessage = (chat: ChatSummary): string => {
+    if (!chat.lastMessage) return 'No messages yet';
+
+    const content = chat.lastMessage.content;
+    return content.length > 50 ? `${content.substring(0, 50)}...` : content;
+  };
+
+  const formatTimestamp = (date: Date): string => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+
+    return date.toLocaleDateString();
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant='body2' color='text.secondary'>
+          Loading chats...
+        </Typography>
+      </Box>
     );
-  }, []); // Empty deps since mockContacts is static
+  }
 
-  const { online, offline } = filteredContacts;
+  if (error) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant='body2' color='error'>
+          Failed to load chats
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (chats.length === 0) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant='body2' color='text.secondary'>
+          No chats yet. Start a conversation!
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <List>
-      {/* Online Contacts Section */}
-      {online.length > 0 && (
-        <>
-          <ListItem sx={{ px: 1 }}>
-            <Typography variant='subtitle2' color='text.secondary'>
-              Online — {online.length}
-            </Typography>
-          </ListItem>
-          {online.map((contact) => (
-            <ListItem
-              onClick={() => onContactSelect(contact.id)}
-              key={contact.id}
-              sx={{ borderRadius: 1, cursor: 'pointer', py: 0 }}
-            >
-              <Avatar
+      {chats.map((chat) => (
+        <ListItem
+          key={chat.chatId}
+          onClick={() => onChatSelect(chat.chatId)}
+          sx={{
+            borderRadius: 1,
+            cursor: 'pointer',
+            py: 1,
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          }}
+        >
+          <Badge
+            badgeContent={chat.unreadCount}
+            color='primary'
+            invisible={chat.unreadCount === 0}
+            sx={{ mr: 2 }}
+          >
+            {getChatAvatar(chat)}
+          </Badge>
+          <ListItemText
+            primary={
+              <Box
                 sx={{
-                  mr: 2,
-                  bgcolor: contactColors[contact.id],
-                  color: shouldUseWhiteText(contactColors[contact.id])
-                    ? 'white'
-                    : 'black',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
               >
-                {contact.displayName[0].toUpperCase()}
-              </Avatar>
-              <ListItemText
-                primary={contact.displayName}
-                secondary={contact.status}
-              />
-            </ListItem>
-          ))}
-        </>
-      )}
-
-      {/* Offline Contacts Section */}
-      {offline.length > 0 && (
-        <>
-          <ListItem sx={{ px: 1, mt: 2 }}>
-            <Typography variant='subtitle2' color='text.secondary'>
-              Offline — {offline.length}
-            </Typography>
-          </ListItem>
-          {offline.map((contact) => (
-            <ListItem
-              onClick={() => onContactSelect(contact.id)}
-              key={contact.id}
-              sx={{ borderRadius: 1, mb: 0.5, cursor: 'pointer', py: 0 }}
-            >
-              <Avatar
+                <Typography
+                  variant='subtitle2'
+                  sx={{ fontWeight: chat.unreadCount > 0 ? 'bold' : 'normal' }}
+                >
+                  {getChatDisplayName(chat)}
+                </Typography>
+                {chat.lastMessage && (
+                  <Typography variant='caption' color='text.secondary'>
+                    {formatTimestamp(chat.lastMessage.timestamp)}
+                  </Typography>
+                )}
+              </Box>
+            }
+            secondary={
+              <Typography
+                variant='body2'
+                color='text.secondary'
                 sx={{
-                  mr: 2,
-                  bgcolor: contactColors[contact.id],
-                  color: shouldUseWhiteText(contactColors[contact.id])
-                    ? 'white'
-                    : 'black',
+                  fontWeight: chat.unreadCount > 0 ? 'medium' : 'normal',
+                  opacity: chat.unreadCount > 0 ? 1 : 0.7,
                 }}
               >
-                {contact.displayName[0].toUpperCase()}
-              </Avatar>
-              <ListItemText
-                primary={contact.displayName}
-                secondary={contact.status}
-              />
-            </ListItem>
-          ))}
-        </>
-      )}
+                {formatLastMessage(chat)}
+              </Typography>
+            }
+          />
+        </ListItem>
+      ))}{' '}
     </List>
   );
 };

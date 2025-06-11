@@ -1,11 +1,29 @@
-import { Chat, Message, BaseUser } from '../types/types';
+import { Chat, Message, BaseUser, CurrentUser } from '../types/types';
 
 // The lawyer (current user)
-export const currentUser: BaseUser = {
+export const currentUser: CurrentUser = {
   id: 'lawyer',
   username: 'jewish_lawyer',
   displayName: 'Brian Unger',
+  email: 'brian.unger@example.com',
   status: 'online',
+  createdAt: new Date('2025-01-01'),
+  chats: ['chat_dennis', 'chat_charlie', 'chat_mac', 'chat_group_gang'],
+  privacy: {
+    showStatus: true,
+    showLastSeen: true,
+    showActivity: true,
+  },
+  notifications: {
+    enabled: true,
+    sound: true,
+    muteUntil: null,
+  },
+  friends: {
+    list: ['dennis', 'charlie', 'mac', 'dee', 'frank'],
+    pending: ['cricket'],
+    blocked: ['waitress'],
+  },
 };
 
 export const mockContacts: BaseUser[] = [

@@ -9,10 +9,10 @@ import ChatSearch from './ChatSearch/ChatSearch';
 import { SidebarProvider } from './SidebarProvider';
 
 interface SidebarProps {
-  onContactSelect: (contactId: string) => void;
+  onChatSelect: (chatId: string) => void;
 }
 
-const SidebarContent: React.FC<SidebarProps> = ({ onContactSelect }) => {
+const SidebarContent: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { user } = useAuth();
 
@@ -30,9 +30,10 @@ const SidebarContent: React.FC<SidebarProps> = ({ onContactSelect }) => {
           boxShadow: 1,
         }}
       >
+        {' '}
         <Box flex={1} display='flex' flexDirection='column' p={2}>
-          <ChatSearch />
-          <ChatList onContactSelect={onContactSelect} />
+          <ChatSearch onChatCreated={onChatSelect} />
+          <ChatList onChatSelect={onChatSelect} />
         </Box>
         {/* Settings Button */}
         <Box

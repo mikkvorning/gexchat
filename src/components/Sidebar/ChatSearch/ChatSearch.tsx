@@ -3,7 +3,11 @@ import { useSidebar } from '../SidebarProvider';
 import { useState } from 'react';
 import AddContact from '../AddContact/AddContact';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-const ChatSearch = () => {
+interface ChatSearchProps {
+  onChatCreated?: (chatId: string) => void;
+}
+
+const ChatSearch: React.FC<ChatSearchProps> = ({ onChatCreated }) => {
   const { searchValue, setSearchValue } = useSidebar();
 
   const [addContactOpen, setAddContactOpen] = useState(false);
@@ -19,7 +23,6 @@ const ChatSearch = () => {
         value={searchValue}
         onChange={(e) => setSearchValue(e.target.value)}
       />
-
       {/* Opens add user dialog */}
       <Box display='flex' justifyContent='flex-end'>
         <IconButton
@@ -28,11 +31,11 @@ const ChatSearch = () => {
         >
           <PersonAddIcon />
         </IconButton>
-      </Box>
-
+      </Box>{' '}
       <AddContact
         open={addContactOpen}
         onClose={() => setAddContactOpen(false)}
+        onChatCreated={onChatCreated}
       />
     </Box>
   );

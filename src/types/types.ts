@@ -36,6 +36,9 @@ export interface CurrentUser extends BaseUser {
   email: string;
   createdAt: Date;
 
+  // User's active chats
+  chats: string[]; // Array of chat IDs the user participates in
+
   // Simple privacy settings
   privacy: {
     showStatus: boolean;
@@ -49,11 +52,11 @@ export interface CurrentUser extends BaseUser {
     muteUntil?: Date | null;
   };
 
-  // Friend management
+  // Friend management (separate from chats)
   friends: {
-    list: FriendUser[];
-    pending: string[];
-    blocked: string[];
+    list: string[]; // Array of user IDs who are friends
+    pending: string[]; // Array of user IDs with pending friend requests
+    blocked: string[]; // Array of user IDs who are blocked
   };
 }
 
@@ -148,4 +151,34 @@ export interface MessageDraft {
     previewURL?: string;
   }[];
   replyToMessageId?: string;
+}
+
+/**
+ * Request to create a new chat
+ */
+export interface CreateChatRequest {
+  type: 'direct' | 'group';
+  participantIds: string[];
+  name?: string; // Required for group chats
+}
+
+/**
+ * Response from creating a chat
+ */
+export interface CreateChatResponse {
+  chatId: string;
+  chat: Chat;
+}
+
+/**
+ * User's chat summary for sidebar display
+ */
+export interface ChatSummary {
+  chatId: string;
+  type: 'direct' | 'group';
+  name?: string;
+  otherParticipants: BaseUser[]; // Other users in the chat (excluding current user)
+  lastMessage?: Message;
+  unreadCount: number;
+  updatedAt: Date;
 }

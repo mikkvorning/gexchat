@@ -19,11 +19,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { createChat, addFriend } from '@/lib/chatService';
 
 interface AddContactProps {
   open: boolean;
   onClose: () => void;
+  onChatCreated?: (chatId: string) => void;
 }
 
 interface SearchResult {
@@ -60,27 +61,11 @@ const searchUsers = async (searchTerm: string, currentUserId: string) => {
   return results;
 };
 
-const addContact = async ({
-  userId,
-  contactId,
-}: {
-  userId: string;
-  contactId: string;
+const AddContact: React.FC<AddContactProps> = ({
+  open,
+  onClose,
+  onChatCreated,
 }) => {
-  if (!userId || !contactId) throw new Error('Missing user or contact ID');
-
-  // Reference to the contact in the user's contacts subcollection
-  const contactRef = doc(db, 'users', userId, 'contacts', contactId);
-  const contactSnap = await getDoc(contactRef);
-  if (contactSnap.exists()) {
-    throw new Error('Contact already added');
-  }
-  // Add the contact (you can add more fields as needed)
-  await setDoc(contactRef, { addedAt: new Date() });
-  return true;
-};
-
-const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -95,22 +80,42 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     queryFn: () => searchUsers(searchTerm, user?.uid ?? ''),
     enabled: false,
   });
-  const { mutate: handleAddContact, isPending: isAdding } = useMutation({
-    mutationFn: ({ contactId }: { contactId: string }) =>
-      addContact({ userId: user?.uid ?? '', contactId }),
+  const { mutate: handleCreateChat, isPending: isCreatingChat } = useMutation({
+    mutationFn: ({ participantId }: { participantId: string }) => {
+      return createChat(
+        { type: 'direct', participantIds: [participantId] },
+        user?.uid ?? ''
+      );
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['userChats', user?.uid] });
+      onChatCreated?.(response.chatId);
+      handleDialogClose();
+    },
+    onError: (error) => {
+      console.error('Failed to create chat:', error);
+    },
+  });
+
+  const { mutate: handleAddFriend, isPending: isAddingFriend } = useMutation({
+    mutationFn: ({ friendId }: { friendId: string }) =>
+      addFriend(user?.uid ?? '', friendId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['userFriends', user?.uid] });
       handleDialogClose();
     },
   });
-  const handleStartChat = (userId: string, displayName: string) => {
-    // TODO: Implement start chat functionality
-    console.log('Starting chat with:', displayName);
-    handleDialogClose();
+  const handleStartChat = (userId: string) => {
+    if (!user?.uid) {
+      console.error('ERROR: No current user found');
+      return;
+    }
+
+    handleCreateChat({ participantId: userId });
   };
 
   const handleAddAsContact = (userId: string) => {
-    handleAddContact({ contactId: userId });
+    handleAddFriend({ friendId: userId });
   };
 
   const handleAccordionChange =
@@ -186,24 +191,24 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                    {' '}
                     <Button
                       variant='contained'
                       color='primary'
-                      onClick={() =>
-                        handleStartChat(result.id, result.displayName)
-                      }
+                      onClick={() => handleStartChat(result.id)}
+                      disabled={isCreatingChat}
                       fullWidth
                     >
-                      Start Chat
+                      {isCreatingChat ? 'Starting...' : 'Start Chat'}
                     </Button>
                     <Button
                       variant='outlined'
                       color='secondary'
                       onClick={() => handleAddAsContact(result.id)}
-                      disabled={isAdding}
+                      disabled={isAddingFriend}
                       fullWidth
                     >
-                      {isAdding ? 'Adding...' : 'Add Friend'}
+                      {isAddingFriend ? 'Adding...' : 'Add Friend'}
                     </Button>
                   </Box>
                 </Box>

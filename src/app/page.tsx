@@ -9,7 +9,7 @@ import Chat from '@/components/Chat/Chat';
 const Home = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [selectedContactId, setSelectedContactId] = useState<string>();
+  const [selectedChatId, setSelectedChatId] = useState<string>();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,8 +41,8 @@ const Home = () => {
 
   return (
     <Box display='flex' height='100vh'>
-      <Sidebar onContactSelect={setSelectedContactId} />
-      <Chat selectedContactId={selectedContactId} />
+      <Sidebar onChatSelect={setSelectedChatId} />
+      <Chat selectedChatId={selectedChatId} />
     </Box>
   );
 };
