@@ -9,6 +9,7 @@ import {
   arrayUnion,
   serverTimestamp,
   writeBatch,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -18,6 +19,7 @@ import {
   ChatSummary,
   BaseUser,
   CurrentUser,
+  Message,
 } from '@/types/types';
 
 /**
@@ -204,6 +206,36 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
   return chatSummaries.sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
+};
+
+/**
+ * Get a specific chat by ID
+ */
+export const getChat = async (chatId: string): Promise<Chat | null> => {
+  if (!chatId) return null;
+
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+
+  if (!chatSnap.exists()) return null;
+
+  return { id: chatSnap.id, ...chatSnap.data() } as Chat;
+};
+
+/**
+ * Get messages for a specific chat
+ */
+export const getChatMessages = async (chatId: string): Promise<Message[]> => {
+  if (!chatId) return [];
+
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Message[];
 };
 
 /**

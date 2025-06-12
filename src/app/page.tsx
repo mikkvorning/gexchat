@@ -2,14 +2,14 @@
 import { useAuth } from '@/components/AuthProvider';
 import Sidebar from '@/components/Sidebar/Sidebar';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Box, CircularProgress, Typography } from './muiImports';
 import Chat from '@/components/Chat/Chat';
+import { AppProvider } from '@/components/AppProvider';
 
 const Home = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [selectedChatId, setSelectedChatId] = useState<string>();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,8 +41,10 @@ const Home = () => {
 
   return (
     <Box display='flex' height='100vh'>
-      <Sidebar onChatSelect={setSelectedChatId} />
-      <Chat selectedChatId={selectedChatId} />
+      <AppProvider contacts={[]}>
+        <Sidebar />
+        <Chat />
+      </AppProvider>
     </Box>
   );
 };

@@ -1,22 +1,48 @@
 import { Box, Paper, TextField, Typography } from '../../app/muiImports';
-import { mockChats, mockMessages, mockContacts } from '../../mock/mockData';
 import { useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getChat, getChatMessages } from '../../lib/chatService';
+import { useAuth } from '../AuthProvider';
+import { useAppContext } from '../AppProvider';
 
-interface ChatProps {
-  selectedChatId?: string;
-}
-
-const Chat = ({ selectedChatId }: ChatProps) => {
+const Chat = () => {
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const { selectedChat } = useAppContext();
+  // Get chat data
+  const {
+    data: chat,
+    isLoading: chatLoading,
+    error: chatError,
+  } = useQuery({
+    queryKey: ['chat', selectedChat],
+    queryFn: () => getChat(selectedChat!),
+    enabled: !!selectedChat,
+  });
+  // Get chat messages
+  const {
+    data: messages = [],
+    isLoading: messagesLoading,
+    error: messagesError,
+  } = useQuery({
+    queryKey: ['chatMessages', selectedChat],
+    queryFn: () => getChatMessages(selectedChat!),
+    enabled: !!selectedChat,
+  });
 
   // Focus the message input when a chat is selected
   useEffect(() => {
-    if (selectedChatId && messageInputRef.current) {
-      messageInputRef.current.focus();
-    }
-  }, [selectedChatId]);
+    if (selectedChat && messageInputRef.current) {
+      // Small delay to ensure the UI has rendered
+      const timeoutId = setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 100);
 
-  if (!selectedChatId) {
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedChat]);
+
+  if (!selectedChat) {
     return (
       <Box
         sx={{
@@ -26,7 +52,6 @@ const Chat = ({ selectedChatId }: ChatProps) => {
           justifyContent: 'center',
         }}
       >
-        {' '}
         <Typography variant='h6' color='text.secondary'>
           Select a chat to start chatting
         </Typography>
@@ -34,10 +59,24 @@ const Chat = ({ selectedChatId }: ChatProps) => {
     );
   }
 
-  // Find chat by ID
-  const chat = mockChats.find((c) => c.id === selectedChatId);
+  if (chatLoading || messagesLoading) {
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Typography variant='h6' color='text.secondary'>
+          Loading chat...
+        </Typography>
+      </Box>
+    );
+  }
 
-  if (!chat) {
+  if (chatError || messagesError || !chat) {
     return (
       <Box
         sx={{
@@ -56,10 +95,12 @@ const Chat = ({ selectedChatId }: ChatProps) => {
 
   // Get other participant for display name (for direct chats)
   const otherParticipant = chat.participants.find(
-    (p) => p.userId !== 'lawyer' // Assuming current user is 'lawyer'
+    (p) => p.userId !== user?.uid
   );
-  const contact = mockContacts.find((c) => c.id === otherParticipant?.userId);
-  const messages = mockMessages[chat.id] || [];
+
+  // For now, we'll use the participant's user ID as display name
+  // In a real app, you'd query the user document to get display name
+  const displayName = otherParticipant?.userId || 'Unknown User';
 
   return (
     <Box
@@ -81,16 +122,15 @@ const Chat = ({ selectedChatId }: ChatProps) => {
           gap: 1,
         }}
       >
-        <Typography variant='h6'>{contact?.displayName}</Typography>
+        <Typography variant='h6'>{displayName}</Typography>
         <Typography
           variant='body2'
           color='text.secondary'
           sx={{ marginLeft: 'auto' }}
         >
-          {contact?.status}
+          online
         </Typography>
-      </Box>
-
+      </Box>{' '}
       {/* Chat messages */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
         {messages.map((message) => (
@@ -101,15 +141,15 @@ const Chat = ({ selectedChatId }: ChatProps) => {
               display: 'flex',
               flexDirection: 'column',
               alignItems:
-                message.senderId === 'lawyer' ? 'flex-end' : 'flex-start',
+                message.senderId === user?.uid ? 'flex-end' : 'flex-start',
             }}
           >
             <Box
               sx={{
                 bgcolor:
-                  message.senderId === 'lawyer' ? 'primary.main' : 'grey.800',
+                  message.senderId === user?.uid ? 'primary.main' : 'grey.800',
                 color:
-                  message.senderId === 'lawyer'
+                  message.senderId === user?.uid
                     ? 'primary.contrastText'
                     : 'text.primary',
                 p: 2,
@@ -124,8 +164,7 @@ const Chat = ({ selectedChatId }: ChatProps) => {
             </Typography>
           </Box>
         ))}
-      </Box>
-
+      </Box>{' '}
       {/* Chat input */}
       <Paper
         sx={{
@@ -135,7 +174,7 @@ const Chat = ({ selectedChatId }: ChatProps) => {
       >
         {' '}
         <TextField
-          ref={messageInputRef}
+          inputRef={messageInputRef}
           variant='outlined'
           placeholder='Type a message...'
           fullWidth

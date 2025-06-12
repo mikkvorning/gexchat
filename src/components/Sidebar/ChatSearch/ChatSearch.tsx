@@ -1,14 +1,11 @@
 import { Box, IconButton, TextField } from '@/app/muiImports';
-import { useSidebar } from '../SidebarProvider';
 import { useState } from 'react';
 import AddContact from '../AddContact/AddContact';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-interface ChatSearchProps {
-  onChatCreated?: (chatId: string) => void;
-}
+import { useAppContext } from '../../AppProvider';
 
-const ChatSearch: React.FC<ChatSearchProps> = ({ onChatCreated }) => {
-  const { searchValue, setSearchValue } = useSidebar();
+const ChatSearch: React.FC = () => {
+  const { searchValue, setSearchValue } = useAppContext();
 
   const [addContactOpen, setAddContactOpen] = useState(false);
 
@@ -30,12 +27,11 @@ const ChatSearch: React.FC<ChatSearchProps> = ({ onChatCreated }) => {
           onClick={() => setAddContactOpen(true)}
         >
           <PersonAddIcon />
-        </IconButton>
-      </Box>{' '}
+        </IconButton>{' '}
+      </Box>
       <AddContact
         open={addContactOpen}
         onClose={() => setAddContactOpen(false)}
-        onChatCreated={onChatCreated}
       />
     </Box>
   );

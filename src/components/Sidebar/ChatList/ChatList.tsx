@@ -13,13 +13,11 @@ import { getUserChats } from '../../../lib/chatService';
 import { useAuth } from '../../AuthProvider';
 import { shouldUseWhiteText, generateAvatarColor } from '../../../utils/colors';
 import { ChatSummary } from '../../../types/types';
+import { useAppContext } from '../../AppProvider';
 
-interface ChatListProps {
-  onChatSelect: (chatId: string) => void;
-}
-
-const ChatList: React.FC<ChatListProps> = ({ onChatSelect }) => {
+const ChatList: React.FC = () => {
   const { user } = useAuth();
+  const { setSelectedChat } = useAppContext();
 
   const {
     data: chats = [],
@@ -78,14 +76,12 @@ const ChatList: React.FC<ChatListProps> = ({ onChatSelect }) => {
 
     return <Avatar>?</Avatar>;
   };
-
   const formatLastMessage = (chat: ChatSummary): string => {
     if (!chat.lastMessage) return 'No messages yet';
 
     const content = chat.lastMessage.content;
     return content.length > 50 ? `${content.substring(0, 50)}...` : content;
   };
-
   const formatTimestamp = (date: Date): string => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -136,7 +132,7 @@ const ChatList: React.FC<ChatListProps> = ({ onChatSelect }) => {
       {chats.map((chat) => (
         <ListItem
           key={chat.chatId}
-          onClick={() => onChatSelect(chat.chatId)}
+          onClick={() => setSelectedChat(chat.chatId)}
           sx={{
             borderRadius: 1,
             cursor: 'pointer',

@@ -20,11 +20,11 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { createChat, addFriend } from '@/lib/chatService';
+import { useAppContext } from '@/components/AppProvider';
 
 interface AddContactProps {
   open: boolean;
   onClose: () => void;
-  onChatCreated?: (chatId: string) => void;
 }
 
 interface SearchResult {
@@ -61,14 +61,11 @@ const searchUsers = async (searchTerm: string, currentUserId: string) => {
   return results;
 };
 
-const AddContact: React.FC<AddContactProps> = ({
-  open,
-  onClose,
-  onChatCreated,
-}) => {
+const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { setSelectedChat } = useAppContext();
   const queryClient = useQueryClient();
 
   const {
@@ -89,7 +86,7 @@ const AddContact: React.FC<AddContactProps> = ({
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['userChats', user?.uid] });
-      onChatCreated?.(response.chatId);
+      setSelectedChat(response.chatId);
       handleDialogClose();
     },
     onError: (error) => {

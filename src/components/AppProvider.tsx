@@ -1,16 +1,24 @@
-import React, { createContext, useContext, ReactNode, useState } from 'react';
-import { BaseUser } from '../../types/types';
+import React, {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+} from 'react';
+import { BaseUser } from '../types/types';
 
-interface SidebarContextType {
+interface AppContextType {
   searchValue: string;
   setSearchValue: (value: string) => void;
   filteredContacts: {
     online: BaseUser[];
     offline: BaseUser[];
   };
+  selectedChat: string | null;
+  setSelectedChat: (chatId: string | null) => void;
 }
 
-const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const filterContacts = (contacts: BaseUser[], searchValue: string) => {
   const filteredBySearch = contacts.filter((contact) =>
@@ -30,27 +38,34 @@ type Props = {
   contacts: BaseUser[];
 };
 
-export const SidebarProvider = (props: Props) => {
+export const AppProvider = (props: Props) => {
   const [searchValue, setSearchValue] = useState('');
   const filteredContacts = filterContacts(props.contacts, searchValue);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log(`Selected chat changed: ${selectedChat}`);
+  }, [selectedChat]);
 
   return (
-    <SidebarContext.Provider
+    <AppContext.Provider
       value={{
         searchValue,
         setSearchValue,
         filteredContacts,
+        selectedChat,
+        setSelectedChat,
       }}
     >
       {props.children}
-    </SidebarContext.Provider>
+    </AppContext.Provider>
   );
 };
 
-export const useSidebar = () => {
-  const context = useContext(SidebarContext);
+export const useAppContext = () => {
+  const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
+    throw new Error('useAppContext must be used within an AppProvider');
   }
   return context;
 };
