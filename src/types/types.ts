@@ -109,7 +109,6 @@ export interface Chat {
     joinedAt: Date;
   }[];
   createdAt: Date;
-  lastMessage?: Message;
   unreadCount: number;
 }
 

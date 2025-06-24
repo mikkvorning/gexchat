@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   writeBatch,
   orderBy,
+  limit,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -250,24 +251,43 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         }
       }
 
+      // Get the actual last message from messages subcollection (single source of truth)
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const lastMessageQuery = query(
+        messagesRef,
+        orderBy('timestamp', 'desc'),
+        limit(1)
+      );
+      const lastMessageSnap = await getDocs(lastMessageQuery);
+
+      let lastMessage: Message | undefined;
+      if (!lastMessageSnap.empty) {
+        const lastMessageDoc = lastMessageSnap.docs[0];
+        const messageData = lastMessageDoc.data();
+        lastMessage = {
+          id: lastMessageDoc.id,
+          chatId: chatId,
+          senderId: messageData.senderId,
+          content: messageData.content,
+          timestamp: convertTimestamp(
+            messageData.timestamp as Date | Timestamp
+          ),
+          edited: messageData.edited || false,
+          replyTo: messageData.replyTo,
+          attachments: messageData.attachments,
+        };
+      }
+
       chatSummaries.push({
         chatId: chat.id,
         type: chat.type,
         name: chat.name,
         otherParticipants,
-        lastMessage: chat.lastMessage
-          ? {
-              ...chat.lastMessage,
-              timestamp: convertTimestamp(
-                chat.lastMessage.timestamp as Date | Timestamp
-              ),
-            }
-          : undefined,
+        lastMessage,
         unreadCount: chat.unreadCount || 0,
-        updatedAt: convertTimestamp(
-          (chat.lastMessage?.timestamp as Date | Timestamp) ||
-            (chat.createdAt as Date | Timestamp)
-        ),
+        updatedAt:
+          lastMessage?.timestamp ||
+          convertTimestamp(chat.createdAt as Date | Timestamp),
       });
     }
   }
@@ -294,14 +314,6 @@ export const getChat = async (chatId: string): Promise<Chat | null> => {
 
   // Convert timestamps
   chat.createdAt = convertTimestamp(data.createdAt as Date | Timestamp);
-  if (data.lastMessage?.timestamp) {
-    chat.lastMessage = {
-      ...data.lastMessage,
-      timestamp: convertTimestamp(
-        data.lastMessage.timestamp as Date | Timestamp
-      ),
-    };
-  }
 
   return chat;
 };
@@ -353,16 +365,11 @@ export const sendMessage = async (
 
   await setDoc(newMessageRef, messageData);
 
-  // Update chat's lastMessage and lastActivity
+  // Update chat's lastActivity (no more lastMessage duplication)
   const chatRef = doc(db, 'chats', chatId);
   await setDoc(
     chatRef,
     {
-      lastMessage: {
-        content: content.trim(),
-        senderId,
-        timestamp: serverTimestamp(),
-      },
       lastActivity: serverTimestamp(),
     },
     { merge: true }

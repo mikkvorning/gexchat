@@ -15,117 +15,46 @@ import {
   Box,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
-import { createChat, addFriend } from '@/lib/chatService';
 import { useAppContext } from '@/components/AppProvider';
+import { useAddContact } from '../hooks';
 
 interface AddContactProps {
   open: boolean;
   onClose: () => void;
 }
 
-interface SearchResult {
-  id: string;
-  email: string;
-  displayName: string;
-}
-
-const searchUsers = async (searchTerm: string, currentUserId: string) => {
-  if (!searchTerm) return [];
-  const usersRef = collection(db, 'users');
-  // Query by username only
-  const usernameQuery = query(
-    usersRef,
-    where('username', '>=', searchTerm),
-    where('username', '<=', searchTerm + '\uf8ff')
-  );
-  const usernameSnap = await getDocs(usernameQuery);
-  const results: SearchResult[] = [];
-  usernameSnap.forEach((doc) => {
-    if (doc.id !== currentUserId) {
-      const data = doc.data() as {
-        email: string;
-        displayName: string;
-        username: string;
-      };
-      results.push({
-        id: doc.id,
-        email: data.email,
-        displayName: data.displayName,
-      });
-    }
-  });
-  return results;
-};
-
 const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const { user } = useAuth();
   const { setSelectedChat } = useAppContext();
-  const queryClient = useQueryClient();
 
   const {
-    data: searchResults = [],
-    refetch,
-    isFetching,
-  } = useQuery<SearchResult[]>({
-    queryKey: ['searchUsers', searchTerm, user?.uid],
-    queryFn: () => searchUsers(searchTerm, user?.uid ?? ''),
-    enabled: false,
-  });
-  const { mutate: handleCreateChat, isPending: isCreatingChat } = useMutation({
-    mutationFn: ({ participantId }: { participantId: string }) => {
-      return createChat(
-        { type: 'direct', participantIds: [participantId] },
-        user?.uid ?? ''
-      );
-    },
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['userChats', user?.uid] });
-      setSelectedChat(response.chatId);
-      handleDialogClose();
-    },
-    onError: (error) => {
-      console.error('Failed to create chat:', error);
-    },
-  });
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    searchLoading,
+    createChatMutation,
+    addFriendMutation,
+    handleStartChat,
+    handleAddFriend,
+  } = useAddContact(user?.uid, onClose);
 
-  const { mutate: handleAddFriend, isPending: isAddingFriend } = useMutation({
-    mutationFn: ({ friendId }: { friendId: string }) =>
-      addFriend(user?.uid ?? '', friendId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userFriends', user?.uid] });
-      handleDialogClose();
-    },
-  });
-  const handleStartChat = (userId: string) => {
-    if (!user?.uid) {
-      console.error('ERROR: No current user found');
-      return;
-    }
-
-    handleCreateChat({ participantId: userId });
-  };
-
-  const handleAddAsContact = (userId: string) => {
-    handleAddFriend({ friendId: userId });
-  };
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const handleAccordionChange =
     (userId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
       setExpandedUserId(isExpanded ? userId : null);
     };
-  const onSearch = () => {
-    if (searchTerm) refetch();
-  };
+
   const handleDialogClose = () => {
     setExpandedUserId(null);
     setSearchTerm('');
     onClose();
+  };
+
+  const handleStartChatWrapper = (userId: string) => {
+    handleStartChat(userId);
+    setSelectedChat(userId); // Update selected chat in context
   };
   return (
     <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
@@ -137,19 +66,10 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
           label='Search by username'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyUp={(e) => e.key === 'Enter' && onSearch()}
           InputProps={{
-            endAdornment: isFetching ? <CircularProgress size={20} /> : null,
+            endAdornment: searchLoading ? <CircularProgress size={20} /> : null,
           }}
         />
-        <Button
-          onClick={onSearch}
-          disabled={isFetching || !searchTerm}
-          variant='outlined'
-          fullWidth
-        >
-          Search
-        </Button>
 
         <Box sx={{ mt: 1 }}>
           {searchResults.map((result) => (
@@ -184,35 +104,35 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                     <Typography variant='body1' sx={{ mb: 1 }}>
                       <strong>Email:</strong> {result.email}
                     </Typography>
-                    {/* Add more profile fields here as needed */}
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                    {' '}
                     <Button
                       variant='contained'
                       color='primary'
-                      onClick={() => handleStartChat(result.id)}
-                      disabled={isCreatingChat}
+                      onClick={() => handleStartChatWrapper(result.id)}
+                      disabled={createChatMutation.isPending}
                       fullWidth
                     >
-                      {isCreatingChat ? 'Starting...' : 'Start Chat'}
+                      {createChatMutation.isPending
+                        ? 'Starting...'
+                        : 'Start Chat'}
                     </Button>
                     <Button
                       variant='outlined'
                       color='secondary'
-                      onClick={() => handleAddAsContact(result.id)}
-                      disabled={isAddingFriend}
+                      onClick={() => handleAddFriend(result.id)}
+                      disabled={addFriendMutation.isPending}
                       fullWidth
                     >
-                      {isAddingFriend ? 'Adding...' : 'Add Friend'}
+                      {addFriendMutation.isPending ? 'Adding...' : 'Add Friend'}
                     </Button>
                   </Box>
                 </Box>
               </AccordionDetails>
             </Accordion>
           ))}
-          {searchResults.length === 0 && searchTerm && !isFetching && (
+          {searchResults.length === 0 && searchTerm && !searchLoading && (
             <Typography
               variant='body2'
               color='text.secondary'
