@@ -39,6 +39,9 @@ export interface CurrentUser extends BaseUser {
   // User's active chats
   chats: string[]; // Array of chat IDs the user participates in
 
+  // User blocking (independent of friend status)
+  blocked: string[]; // Array of user IDs who are blocked
+
   // Simple privacy settings
   privacy: {
     showStatus: boolean;
@@ -52,11 +55,10 @@ export interface CurrentUser extends BaseUser {
     muteUntil?: Date | null;
   };
 
-  // Friend management (separate from chats)
+  // Friend management (separate from chats and blocking)
   friends: {
     list: string[]; // Array of user IDs who are friends
     pending: string[]; // Array of user IDs with pending friend requests
-    blocked: string[]; // Array of user IDs who are blocked
   };
 }
 
@@ -102,6 +104,7 @@ export interface Chat {
   name?: string; // Required for group chats
   participants: {
     userId: string;
+    username: string;
     role: 'admin' | 'member';
     joinedAt: Date;
   }[];

@@ -1,14 +1,76 @@
-import { Box, Paper, TextField, Typography } from '../../app/muiImports';
-import { useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getChat, getChatMessages } from '../../lib/chatService';
+import {
+  Box,
+  Paper,
+  TextField,
+  Typography,
+  IconButton,
+} from '../../app/muiImports';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getChat, getChatMessages, sendMessage } from '../../lib/chatService';
 import { useAuth } from '../AuthProvider';
 import { useAppContext } from '../AppProvider';
+import SendIcon from '@mui/icons-material/Send';
 
 const Chat = () => {
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messageText, setMessageText] = useState('');
   const { user } = useAuth();
   const { selectedChat } = useAppContext();
+  const queryClient = useQueryClient();
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: ({
+      chatId,
+      senderId,
+      content,
+    }: {
+      chatId: string;
+      senderId: string;
+      content: string;
+    }) => sendMessage(chatId, senderId, content),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({
+        queryKey: ['chatMessages', selectedChat],
+      });
+      // Clear input
+      setMessageText('');
+      // Refocus input
+      messageInputRef.current?.focus();
+    },
+    onError: (error) => {
+      console.error('Failed to send message:', error);
+    },
+  });
+
+  // Handle sending message
+  const handleSendMessage = async () => {
+    if (
+      !selectedChat ||
+      !user?.uid ||
+      !messageText.trim() ||
+      sendMessageMutation.isPending
+    ) {
+      return;
+    }
+
+    sendMessageMutation.mutate({
+      chatId: selectedChat,
+      senderId: user.uid,
+      content: messageText.trim(),
+    });
+  };
+
+  // Handle Enter key press
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
   // Get chat data
   const {
     data: chat,
@@ -41,6 +103,11 @@ const Chat = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [selectedChat]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   if (!selectedChat) {
     return (
@@ -98,9 +165,8 @@ const Chat = () => {
     (p) => p.userId !== user?.uid
   );
 
-  // For now, we'll use the participant's user ID as display name
-  // In a real app, you'd query the user document to get display name
-  const displayName = otherParticipant?.userId || 'Unknown User';
+  // Fallback to username or 'Unknown User' if not found
+  const displayName = otherParticipant?.username || 'Unknown User';
 
   return (
     <Box
@@ -130,9 +196,10 @@ const Chat = () => {
         >
           online
         </Typography>
-      </Box>{' '}
+      </Box>
       {/* Chat messages */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        {' '}
         {messages.map((message) => (
           <Box
             key={message.id}
@@ -164,7 +231,9 @@ const Chat = () => {
             </Typography>
           </Box>
         ))}
-      </Box>{' '}
+        {/* Scroll anchor */}
+        <div ref={messagesEndRef} />
+      </Box>
       {/* Chat input */}
       <Paper
         sx={{
@@ -172,15 +241,29 @@ const Chat = () => {
           p: 2,
         }}
       >
-        {' '}
-        <TextField
-          inputRef={messageInputRef}
-          variant='outlined'
-          placeholder='Type a message...'
-          fullWidth
-          multiline
-          maxRows={4}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
+          <TextField
+            inputRef={messageInputRef}
+            variant='outlined'
+            placeholder='Type a message...'
+            fullWidth
+            multiline
+            maxRows={4}
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            onKeyPress={handleKeyPress}
+            disabled={sendMessageMutation.isPending}
+          />
+          <IconButton
+            size='large'
+            color='primary'
+            onClick={handleSendMessage}
+            disabled={!messageText.trim() || sendMessageMutation.isPending}
+            sx={{ mb: 0.5 }}
+          >
+            <SendIcon />
+          </IconButton>
+        </Box>
       </Paper>
     </Box>
   );
