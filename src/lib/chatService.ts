@@ -61,19 +61,38 @@ export const createChat = async (
     }
   }
 
+  // Fetch user data to populate usernames (only if not provided)
+  const participantsWithUsernames = await Promise.all(
+    allParticipantIds.map(async (userId) => {
+      let username = request.participantUsernames?.[userId];
+
+      // If username not provided, fetch from database
+      if (!username) {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : null;
+        username = userData?.username || 'Unknown User';
+      }
+
+      return {
+        userId,
+        username: username || 'Unknown User',
+        role: (userId === currentUserId ? 'admin' : 'member') as
+          | 'admin'
+          | 'member',
+        joinedAt: new Date(),
+      };
+    })
+  );
+
   // Create new chat document
   const chatRef = doc(collection(db, 'chats'));
   const chatId = chatRef.id;
   const chatData: Chat = {
     id: chatId,
     type: request.type,
-    ...(request.name && { name: request.name }), // Only include name if it's defined
-    participants: allParticipantIds.map((userId) => ({
-      userId,
-      username: '',
-      role: userId === currentUserId ? 'admin' : 'member',
-      joinedAt: new Date(),
-    })),
+    ...(request.name && { name: request.name }),
+    participants: participantsWithUsernames,
     createdAt: new Date(),
     unreadCount: 0,
   };

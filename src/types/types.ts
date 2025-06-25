@@ -161,6 +161,7 @@ export interface MessageDraft {
 export interface CreateChatRequest {
   type: 'direct' | 'group';
   participantIds: string[];
+  participantUsernames?: { [userId: string]: string }; // Optional map of userId -> username
   name?: string; // Required for group chats
 }
 

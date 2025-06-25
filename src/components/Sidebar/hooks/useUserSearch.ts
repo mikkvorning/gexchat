@@ -1,24 +1,20 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { createChat, addFriend } from '../../../lib/chatService';
 
 interface SearchResult {
   id: string;
   email: string;
   displayName: string;
+  username: string;
 }
 
 /**
- * Custom hook for AddContact search and contact management functionality
+ * Custom hook for searching users in the database
  */
-export const useAddContact = (
-  currentUserId: string | undefined,
-  onClose: () => void
-) => {
+export const useUserSearch = (currentUserId: string | undefined) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const queryClient = useQueryClient();
 
   // Search users function
   const searchUsers = async (searchTerm: string, currentUserId: string) => {
@@ -37,11 +33,13 @@ export const useAddContact = (
         const data = doc.data() as {
           email: string;
           displayName: string;
+          username: string;
         };
         results.push({
           id: doc.id,
           email: data.email,
           displayName: data.displayName,
+          username: data.username,
         });
       }
     });
@@ -59,53 +57,11 @@ export const useAddContact = (
     enabled: !!searchTerm && !!currentUserId,
   });
 
-  // Create chat mutation
-  const createChatMutation = useMutation({
-    mutationFn: (participantId: string) =>
-      createChat(
-        {
-          type: 'direct',
-          participantIds: [participantId],
-        },
-        currentUserId!
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userChats'] });
-      onClose();
-    },
-    onError: (error) => {
-      console.error('Failed to create chat:', error);
-    },
-  });
-
-  // Add friend mutation
-  const addFriendMutation = useMutation({
-    mutationFn: (friendId: string) => addFriend(currentUserId!, friendId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userChats'] });
-    },
-    onError: (error) => {
-      console.error('Failed to add friend:', error);
-    },
-  });
-
-  const handleStartChat = (participantId: string) => {
-    createChatMutation.mutate(participantId);
-  };
-
-  const handleAddFriend = (friendId: string) => {
-    addFriendMutation.mutate(friendId);
-  };
-
   return {
     searchTerm,
     setSearchTerm,
     searchResults,
     searchLoading,
     searchError,
-    createChatMutation,
-    addFriendMutation,
-    handleStartChat,
-    handleAddFriend,
   };
 };

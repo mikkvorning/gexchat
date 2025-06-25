@@ -17,7 +17,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '@/components/AuthProvider';
 import { useAppContext } from '@/components/AppProvider';
-import { useAddContact } from '../hooks';
+import { useUserSearch, useCreateChat, useAddFriend } from '../hooks';
 
 interface AddContactProps {
   open: boolean;
@@ -28,16 +28,20 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const { user } = useAuth();
   const { setSelectedChat } = useAppContext();
 
-  const {
-    searchTerm,
-    setSearchTerm,
-    searchResults,
-    searchLoading,
-    createChatMutation,
-    addFriendMutation,
-    handleStartChat,
-    handleAddFriend,
-  } = useAddContact(user?.uid, onClose);
+  // Separate hooks for different responsibilities
+  const { searchTerm, setSearchTerm, searchResults, searchLoading } =
+    useUserSearch(user?.uid);
+
+  const { startChat, isCreatingChat } = useCreateChat(
+    user?.uid,
+    user?.displayName || undefined,
+    (chatId) => {
+      setSelectedChat(chatId);
+      onClose();
+    }
+  );
+
+  const { addFriend, isAddingFriend } = useAddFriend(user?.uid);
 
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
@@ -52,9 +56,12 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     onClose();
   };
 
-  const handleStartChatWrapper = (userId: string) => {
-    handleStartChat(userId);
-    setSelectedChat(userId); // Update selected chat in context
+  const handleStartChat = (userId: string, username: string) => {
+    startChat(userId, username);
+  };
+
+  const handleAddFriend = (friendId: string) => {
+    addFriend(friendId);
   };
   return (
     <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
@@ -110,22 +117,22 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                     <Button
                       variant='contained'
                       color='primary'
-                      onClick={() => handleStartChatWrapper(result.id)}
-                      disabled={createChatMutation.isPending}
+                      onClick={() =>
+                        handleStartChat(result.id, result.username)
+                      }
+                      disabled={isCreatingChat}
                       fullWidth
                     >
-                      {createChatMutation.isPending
-                        ? 'Starting...'
-                        : 'Start Chat'}
+                      {isCreatingChat ? 'Starting...' : 'Start Chat'}
                     </Button>
                     <Button
                       variant='outlined'
                       color='secondary'
                       onClick={() => handleAddFriend(result.id)}
-                      disabled={addFriendMutation.isPending}
+                      disabled={isAddingFriend}
                       fullWidth
                     >
-                      {addFriendMutation.isPending ? 'Adding...' : 'Add Friend'}
+                      {isAddingFriend ? 'Adding...' : 'Add Friend'}
                     </Button>
                   </Box>
                 </Box>
