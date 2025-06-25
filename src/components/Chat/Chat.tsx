@@ -84,7 +84,6 @@ const Chat = () => {
     >
       {/* Chat header */}
       <ChatHeader displayName={displayName} />
-
       {/* Chat messages */}
       <ChatMessages
         messages={messages}
