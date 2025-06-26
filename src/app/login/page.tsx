@@ -87,11 +87,11 @@ const Login = () => {
         const userDoc: CurrentUser = {
           id: userCredential.user.uid,
           email: values.email,
-          username: nickname, // using nickname as username for now
           displayName: nickname,
           avatarUrl: '',
           status: 'online',
           createdAt: new Date(),
+          chats: [],
           privacy: {
             showStatus: true,
             showLastSeen: true,
@@ -105,8 +105,8 @@ const Login = () => {
           friends: {
             list: [],
             pending: [],
-            blocked: [],
           },
+          blocked: [],
         };
         await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
       } else {

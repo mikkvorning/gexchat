@@ -3,7 +3,6 @@ import { Chat, Message, BaseUser, CurrentUser } from '../types/types';
 // The lawyer (current user)
 export const currentUser: CurrentUser = {
   id: 'lawyer',
-  username: 'jewish_lawyer',
   displayName: 'Brian Unger',
   email: 'brian.unger@example.com',
   status: 'online',
@@ -22,50 +21,43 @@ export const currentUser: CurrentUser = {
   friends: {
     list: ['dennis', 'charlie', 'mac', 'dee', 'frank'],
     pending: ['cricket'],
-    blocked: ['waitress'],
   },
+  blocked: ['waitress'],
 };
 
 export const mockContacts: BaseUser[] = [
   {
     id: 'dennis',
-    username: 'golden_god',
     displayName: 'Dennis Reynolds',
     status: 'online',
   },
   {
     id: 'charlie',
-    username: 'king_of_rats',
     displayName: 'Charlie Kelly',
     status: 'away',
   },
   {
     id: 'mac',
-    username: 'sheriff_of_paddy',
     displayName: 'Mac',
     status: 'online',
   },
   {
     id: 'dee',
-    username: 'sweet_dee',
     displayName: 'Dee Reynolds',
     status: 'offline',
   },
   {
     id: 'frank',
-    username: 'dr_mantis',
     displayName: 'Frank Reynolds',
     status: 'online',
   },
   {
     id: 'cricket',
-    username: 'street_rat',
     displayName: 'Rickety Cricket',
     status: 'offline',
   },
   {
     id: 'waitress',
-    username: 'coffee_server',
     displayName: 'The Waitress',
     status: 'away',
   },
@@ -81,14 +73,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-13'),
     unreadCount: 2,
-    lastMessage: {
-      id: 'msg_dennis_latest',
-      chatId: 'chat_dennis',
-      senderId: 'dennis',
-      content:
-        "I am untethered and my rage knows no bounds! You'll be hearing from ME about that restraining order!",
-      timestamp: new Date('2025-05-13T10:30:00'),
-    },
   },
   {
     id: 'chat_charlie',
@@ -99,14 +83,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-12'),
     unreadCount: 1,
-    lastMessage: {
-      id: 'msg_charlie_latest',
-      chatId: 'chat_charlie',
-      senderId: 'charlie',
-      content:
-        'Filibuster! I know a lot about the law and various other lawyerings. I challenge you to a duel!',
-      timestamp: new Date('2025-05-13T09:15:00'),
-    },
   },
   {
     id: 'chat_mac',
@@ -117,14 +93,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-11'),
     unreadCount: 3,
-    lastMessage: {
-      id: 'msg_mac_latest',
-      chatId: 'chat_mac',
-      senderId: 'mac',
-      content:
-        "I've performed an ocular patdown and assessed that this contract is NOT a security risk.",
-      timestamp: new Date('2025-05-13T14:20:00'),
-    },
   },
   {
     id: 'chat_dee',
@@ -135,14 +103,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-10'),
     unreadCount: 0,
-    lastMessage: {
-      id: 'msg_dee_latest',
-      chatId: 'chat_dee',
-      senderId: 'dee',
-      content:
-        "I'm not paying damages for that comedy club incident. Those people should thank me for my sweet jokes!",
-      timestamp: new Date('2025-05-13T15:45:00'),
-    },
   },
   {
     id: 'chat_frank',
@@ -153,14 +113,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-09'),
     unreadCount: 4,
-    lastMessage: {
-      id: 'msg_frank_latest',
-      chatId: 'chat_frank',
-      senderId: 'frank',
-      content:
-        'Listen, about that toe knife incident... can we settle this out of court with an egg?',
-      timestamp: new Date('2025-05-13T16:30:00'),
-    },
   },
   {
     id: 'chat_cricket',
@@ -171,14 +123,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-08'),
     unreadCount: 1,
-    lastMessage: {
-      id: 'msg_cricket_latest',
-      chatId: 'chat_cricket',
-      senderId: 'cricket',
-      content:
-        "Can we sue Paddy's Pub for my facial disfigurement? I have... documentation.",
-      timestamp: new Date('2025-05-13T17:15:00'),
-    },
   },
   {
     id: 'chat_waitress',
@@ -189,14 +133,6 @@ export const mockChats: Chat[] = [
     ],
     createdAt: new Date('2025-05-07'),
     unreadCount: 2,
-    lastMessage: {
-      id: 'msg_waitress_latest',
-      chatId: 'chat_waitress',
-      senderId: 'waitress',
-      content:
-        "I need ANOTHER restraining order against Charlie. He's been leaving cats outside my door again.",
-      timestamp: new Date('2025-05-13T18:00:00'),
-    },
   },
 ];
 

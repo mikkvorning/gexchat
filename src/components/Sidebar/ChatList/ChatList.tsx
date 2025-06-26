@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Avatar,
   List,
@@ -21,8 +21,12 @@ import {
 const ChatList: React.FC = () => {
   const { user } = useAuth();
   const { setSelectedChat } = useAppContext();
+
+  // Memoize user ID to prevent unnecessary hook re-renders
+  const currentUserId = useMemo(() => user?.uid, [user?.uid]);
+
   // Use custom hook for data and state management
-  const { chats, userColors, isLoading, error } = useChatList(user?.uid);
+  const { chats, userColors, isLoading, error } = useChatList(currentUserId);
 
   if (isLoading) {
     return (

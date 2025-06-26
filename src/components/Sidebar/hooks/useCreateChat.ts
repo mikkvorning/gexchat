@@ -6,20 +6,16 @@ import { createChat } from '../../../lib/chatService';
  */
 export const useCreateChat = (
   currentUserId: string | undefined,
-  currentUsername: string | undefined,
   onSuccess?: (chatId: string) => void
 ) => {
   const queryClient = useQueryClient();
 
   const createChatMutation = useMutation({
-    mutationFn: (participantUsernames: { [userId: string]: string }) =>
+    mutationFn: (participantIds: string[]) =>
       createChat(
         {
           type: 'direct',
-          participantIds: Object.keys(participantUsernames).filter(
-            (id) => id !== currentUserId
-          ),
-          participantUsernames,
+          participantIds: participantIds.filter((id) => id !== currentUserId),
         },
         currentUserId!
       ),
@@ -32,17 +28,8 @@ export const useCreateChat = (
     },
   });
 
-  const startChat = (participantId: string, participantUsername: string) => {
-    const participantUsernames: { [userId: string]: string } = {
-      [participantId]: participantUsername,
-    };
-
-    // Add current user's username if available
-    if (currentUserId && currentUsername) {
-      participantUsernames[currentUserId] = currentUsername;
-    }
-
-    createChatMutation.mutate(participantUsernames);
+  const startChat = (participantId: string) => {
+    createChatMutation.mutate([participantId]);
   };
 
   return {

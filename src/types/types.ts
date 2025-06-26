@@ -5,7 +5,6 @@
  */
 export interface BaseUser {
   id: string;
-  username: string;
   displayName: string;
   avatarUrl?: string;
   status: 'online' | 'offline' | 'away';
@@ -104,7 +103,6 @@ export interface Chat {
   name?: string; // Required for group chats
   participants: {
     userId: string;
-    username: string;
     role: 'admin' | 'member';
     joinedAt: Date;
   }[];
@@ -161,7 +159,6 @@ export interface MessageDraft {
 export interface CreateChatRequest {
   type: 'direct' | 'group';
   participantIds: string[];
-  participantUsernames?: { [userId: string]: string }; // Optional map of userId -> username
   name?: string; // Required for group chats
 }
 

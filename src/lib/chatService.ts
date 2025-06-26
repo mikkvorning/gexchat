@@ -61,30 +61,6 @@ export const createChat = async (
     }
   }
 
-  // Fetch user data to populate usernames (only if not provided)
-  const participantsWithUsernames = await Promise.all(
-    allParticipantIds.map(async (userId) => {
-      let username = request.participantUsernames?.[userId];
-
-      // If username not provided, fetch from database
-      if (!username) {
-        const userRef = doc(db, 'users', userId);
-        const userSnap = await getDoc(userRef);
-        const userData = userSnap.exists() ? userSnap.data() : null;
-        username = userData?.username || 'Unknown User';
-      }
-
-      return {
-        userId,
-        username: username || 'Unknown User',
-        role: (userId === currentUserId ? 'admin' : 'member') as
-          | 'admin'
-          | 'member',
-        joinedAt: new Date(),
-      };
-    })
-  );
-
   // Create new chat document
   const chatRef = doc(collection(db, 'chats'));
   const chatId = chatRef.id;
@@ -92,104 +68,81 @@ export const createChat = async (
     id: chatId,
     type: request.type,
     ...(request.name && { name: request.name }),
-    participants: participantsWithUsernames,
+    participants: allParticipantIds.map((userId) => ({
+      userId,
+      role: (userId === currentUserId ? 'admin' : 'member') as
+        | 'admin'
+        | 'member',
+      joinedAt: new Date(),
+    })),
     createdAt: new Date(),
     unreadCount: 0,
   };
 
-  // Create chat document first
-  await setDoc(chatRef, {
+  // Use batch operations for better performance
+  const batch = writeBatch(db);
+
+  // Add chat document to batch
+  batch.set(chatRef, {
     ...chatData,
     createdAt: serverTimestamp(),
-    participants: chatData.participants.map((p) => ({
-      ...p,
-      joinedAt: new Date(),
-    })),
   });
 
-  // Add chat ID to each participant's chats array (unless blocked)
-  for (const userId of allParticipantIds) {
-    const userRef = doc(db, 'users', userId);
-
-    try {
-      // Check if user document exists and has chats field
+  // Fetch all user documents at once to check blocking status
+  const userDocs = await Promise.all(
+    allParticipantIds.map(async (userId) => {
+      const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
+      return {
+        userId,
+        userRef,
+        exists: userSnap.exists(),
+        data: userSnap.exists() ? userSnap.data() : null,
+      };
+    })
+  );
 
-        // Check if this user has blocked any of the other participants
-        const otherParticipantIds = allParticipantIds.filter(
-          (id) => id !== userId
-        );
-        const blockedUsers = userData.blocked || [];
-        const hasBlockedParticipant = otherParticipantIds.some((id) =>
-          blockedUsers.includes(id)
-        );
+  // Check for blocking relationships and update user chats in batch
+  for (const user of userDocs) {
+    const { userId, userRef, exists, data } = user;
 
-        // Check if any other participant has blocked this user
-        let isBlockedByOthers = false;
-        for (const otherUserId of otherParticipantIds) {
-          const otherUserRef = doc(db, 'users', otherUserId);
-          const otherUserSnap = await getDoc(otherUserRef);
-          if (otherUserSnap.exists()) {
-            const otherUserData = otherUserSnap.data();
-            const otherBlockedUsers = otherUserData.blocked || [];
-            if (otherBlockedUsers.includes(userId)) {
-              isBlockedByOthers = true;
-              break;
-            }
-          }
-        }
+    // Check if this user has blocked any other participants
+    const otherParticipantIds = allParticipantIds.filter((id) => id !== userId);
+    const blockedUsers = data?.blocked || [];
+    const hasBlockedParticipant = otherParticipantIds.some((id) =>
+      blockedUsers.includes(id)
+    );
 
-        // Only add chat to user's list if there's no blocking involved
-        if (!hasBlockedParticipant && !isBlockedByOthers) {
-          const newUserData = {
-            ...userData,
-            chats:
-              userData.chats && Array.isArray(userData.chats)
-                ? [...userData.chats, chatId]
-                : [chatId],
-          };
+    // Check if any other participant has blocked this user
+    const isBlockedByOthers = userDocs
+      .filter((u) => u.userId !== userId && u.data)
+      .some((u) => (u.data?.blocked || []).includes(userId));
 
-          await setDoc(userRef, newUserData);
-        }
+    // Only add chat to user's list if there's no blocking involved
+    if (!hasBlockedParticipant && !isBlockedByOthers) {
+      if (exists && data) {
+        // Update existing user document
+        const currentChats = Array.isArray(data.chats) ? data.chats : [];
+        batch.update(userRef, {
+          chats: [...currentChats, chatId],
+        });
       } else {
-        // For new users, we still create the document but only if not blocked
-        // Since this is a new user, we assume they haven't blocked anyone yet
-        let isBlockedByOthers = false;
-        const otherParticipantIds = allParticipantIds.filter(
-          (id) => id !== userId
-        );
-
-        for (const otherUserId of otherParticipantIds) {
-          const otherUserRef = doc(db, 'users', otherUserId);
-          const otherUserSnap = await getDoc(otherUserRef);
-          if (otherUserSnap.exists()) {
-            const otherUserData = otherUserSnap.data();
-            const otherBlockedUsers = otherUserData.blocked || [];
-            if (otherBlockedUsers.includes(userId)) {
-              isBlockedByOthers = true;
-              break;
-            }
-          }
-        }
-
-        if (!isBlockedByOthers) {
-          const newUserData = {
+        // Create new user document
+        batch.set(
+          userRef,
+          {
+            id: userId,
             chats: [chatId],
             createdAt: new Date(),
-            id: userId,
-          };
-
-          // User document doesn't exist, create it with chats field
-          await setDoc(userRef, newUserData, { merge: true });
-        }
+          },
+          { merge: true }
+        );
       }
-    } catch (error) {
-      console.error('Error updating user chats:', error);
-      // Continue with other users even if one fails
     }
   }
+
+  // Commit all operations in a single batch
+  await batch.commit();
 
   return { chatId, chat: chatData };
 };
@@ -239,38 +192,69 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
 
   if (chatIds.length === 0) return [];
 
-  // Get all chat documents
-  const chatSummaries: ChatSummary[] = [];
+  // Get all chat documents in parallel
+  const chatDocs = await Promise.all(
+    chatIds.map(async (chatId) => {
+      const chatRef = doc(db, 'chats', chatId);
+      const chatSnap = await getDoc(chatRef);
+      return { chatId, chatSnap };
+    })
+  );
 
-  for (const chatId of chatIds) {
-    const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
+  // Collect all unique participant IDs
+  const allParticipantIds = new Set<string>();
+  const validChats: { chatId: string; chat: Chat }[] = [];
 
+  chatDocs.forEach(({ chatId, chatSnap }) => {
     if (chatSnap.exists()) {
       const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
+      validChats.push({ chatId, chat });
 
-      // Get other participants' info
+      // Collect participant IDs (excluding current user)
+      chat.participants
+        .map((p) => p.userId)
+        .filter((id) => id !== userId)
+        .forEach((id) => allParticipantIds.add(id));
+    }
+  });
+
+  // Fetch all participant data in parallel
+  const participantData = new Map<string, BaseUser>();
+  if (allParticipantIds.size > 0) {
+    const participantDocs = await Promise.all(
+      Array.from(allParticipantIds).map(async (participantId) => {
+        const participantRef = doc(db, 'users', participantId);
+        const participantSnap = await getDoc(participantRef);
+        return { participantId, participantSnap };
+      })
+    );
+
+    participantDocs.forEach(({ participantId, participantSnap }) => {
+      if (participantSnap.exists()) {
+        const data = participantSnap.data();
+        participantData.set(participantId, {
+          id: participantSnap.id,
+          displayName: data.displayName || 'Unknown User',
+          avatarUrl: data.avatarUrl,
+          status: data.status || 'offline',
+        });
+      }
+    });
+  }
+
+  // Get last messages for all chats in parallel
+  const chatSummaries = await Promise.all(
+    validChats.map(async ({ chatId, chat }) => {
+      // Get other participants
       const otherParticipantIds = chat.participants
         .map((p) => p.userId)
         .filter((id) => id !== userId);
 
-      const otherParticipants: BaseUser[] = [];
-      for (const participantId of otherParticipantIds) {
-        const participantRef = doc(db, 'users', participantId);
-        const participantSnap = await getDoc(participantRef);
-        if (participantSnap.exists()) {
-          const participantData = participantSnap.data();
-          otherParticipants.push({
-            id: participantSnap.id,
-            username: participantData.username,
-            displayName: participantData.displayName,
-            avatarUrl: participantData.avatarUrl,
-            status: participantData.status || 'offline',
-          });
-        }
-      }
+      const otherParticipants: BaseUser[] = otherParticipantIds
+        .map((id) => participantData.get(id))
+        .filter((participant): participant is BaseUser => !!participant);
 
-      // Get the actual last message from messages subcollection (single source of truth)
+      // Get last message
       const messagesRef = collection(db, 'chats', chatId, 'messages');
       const lastMessageQuery = query(
         messagesRef,
@@ -297,7 +281,7 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         };
       }
 
-      chatSummaries.push({
+      return {
         chatId: chat.id,
         type: chat.type,
         name: chat.name,
@@ -307,9 +291,9 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         updatedAt:
           lastMessage?.timestamp ||
           convertTimestamp(chat.createdAt as Date | Timestamp),
-      });
-    }
-  }
+      } as ChatSummary;
+    })
+  );
 
   // Sort by last activity
   return chatSummaries.sort(

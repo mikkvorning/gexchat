@@ -36,7 +36,7 @@ const Sidebar: React.FC = () => {
           display='flex'
           justifyContent='space-between'
         >
-          {/* Display username */}
+          {/* Display user name */}
           <Button variant='text' size='large'>
             {user?.displayName || user?.email || 'User'}
           </Button>

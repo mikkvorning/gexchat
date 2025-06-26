@@ -16,6 +16,11 @@ export const useChatList = (userId: string | undefined) => {
     queryKey: ['userChats', userId],
     queryFn: () => getUserChats(userId ?? ''),
     enabled: !!userId,
+    staleTime: 2 * 60 * 1000, // Consider data fresh for 2 minutes (chats update more frequently)
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    retry: 1, // Only retry once on failure
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   });
 
   // Generate stable color mappings for users

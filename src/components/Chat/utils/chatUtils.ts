@@ -16,7 +16,7 @@ export const getChatDisplayName = (
     (p) => p.userId !== currentUserId
   );
 
-  return otherParticipant?.username || 'Unknown User';
+  return otherParticipant ? 'Direct Chat' : 'Unknown Chat';
 };
 
 export const getOtherParticipant = (

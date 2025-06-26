@@ -10,7 +10,8 @@ export const getChatDisplayName = (chat: ChatSummary): string => {
     return chat.name;
   }
   if (chat.otherParticipants.length > 0) {
-    return chat.otherParticipants[0].displayName;
+    const participant = chat.otherParticipants[0];
+    return participant.displayName || 'Unknown User';
   }
   return 'Unknown Chat';
 };
@@ -29,12 +30,13 @@ export const getChatAvatarProps = (
   if (chat.otherParticipants.length > 0) {
     const participant = chat.otherParticipants[0];
     const color = userColors[participant.id];
+    const displayName = participant.displayName || 'Unknown';
     return {
       sx: {
         bgcolor: color,
         color: shouldUseWhiteText(color) ? 'white' : 'black',
       },
-      children: participant.displayName[0].toUpperCase(),
+      children: displayName[0].toUpperCase(),
     };
   }
 

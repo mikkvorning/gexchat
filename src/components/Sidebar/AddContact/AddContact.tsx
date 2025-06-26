@@ -1,5 +1,5 @@
 // A dialog popup with a search field for finding new contacts in the Firebase database.
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -28,20 +28,22 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   const { user } = useAuth();
   const { setSelectedChat } = useAppContext();
 
+  // Memoize user ID to prevent unnecessary hook re-renders
+  const currentUserId = useMemo(() => user?.uid, [user?.uid]);
+
   // Separate hooks for different responsibilities
   const { searchTerm, setSearchTerm, searchResults, searchLoading } =
-    useUserSearch(user?.uid);
+    useUserSearch(currentUserId);
 
   const { startChat, isCreatingChat } = useCreateChat(
-    user?.uid,
-    user?.displayName || undefined,
+    currentUserId,
     (chatId) => {
       setSelectedChat(chatId);
       onClose();
     }
   );
 
-  const { addFriend, isAddingFriend } = useAddFriend(user?.uid);
+  const { addFriend, isAddingFriend } = useAddFriend(currentUserId);
 
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
@@ -56,8 +58,8 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     onClose();
   };
 
-  const handleStartChat = (userId: string, username: string) => {
-    startChat(userId, username);
+  const handleStartChat = (userId: string) => {
+    startChat(userId);
   };
 
   const handleAddFriend = (friendId: string) => {
@@ -70,7 +72,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
         <TextField
           fullWidth
           margin='dense'
-          label='Search by username'
+          label='Search by display name'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -117,9 +119,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                     <Button
                       variant='contained'
                       color='primary'
-                      onClick={() =>
-                        handleStartChat(result.id, result.username)
-                      }
+                      onClick={() => handleStartChat(result.id)}
                       disabled={isCreatingChat}
                       fullWidth
                     >
