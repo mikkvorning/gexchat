@@ -1,8 +1,9 @@
 import { Box, Typography } from '../../app/muiImports';
 import { useAuth } from '../AuthProvider';
 import { useAppContext } from '../AppProvider';
-import { useChat, useChatEffects } from './hooks';
-import { getChatDisplayName } from './utils';
+import { useChat } from './hooks/useChat';
+import { useChatEffects } from './hooks/useChatEffects';
+import { getChatDisplayName } from './utils/chatUtils';
 import ChatHeader from './ChatHeader';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';

@@ -17,7 +17,9 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '@/components/AuthProvider';
 import { useAppContext } from '@/components/AppProvider';
-import { useUserSearch, useCreateChat, useAddFriend } from '../hooks';
+import { useUserSearch } from '../hooks/useUserSearch';
+import { useCreateChat } from '../hooks/useCreateChat';
+import { useAddFriend } from '../hooks/useAddFriend';
 
 interface AddContactProps {
   open: boolean;

@@ -1,6 +1,6 @@
 import { Box, Paper, TextField, IconButton } from '../../app/muiImports';
 import SendIcon from '@mui/icons-material/Send';
-import { useSendMessage } from './hooks';
+import { useSendMessage } from './hooks/useSendMessage';
 
 interface ChatInputProps {
   chatId: string | null;

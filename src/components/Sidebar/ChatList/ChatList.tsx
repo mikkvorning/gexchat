@@ -10,13 +10,13 @@ import {
 } from '../../../app/muiImports';
 import { useAuth } from '../../AuthProvider';
 import { useAppContext } from '../../AppProvider';
-import { useChatList } from '../hooks';
+import { useChatList } from '../hooks/useChatList';
 import {
   getChatDisplayName,
   getChatAvatarProps,
   formatLastMessage,
   formatTimestamp,
-} from '../utils';
+} from '../utils/chatListUtils';
 
 const ChatList: React.FC = () => {
   const { user } = useAuth();
