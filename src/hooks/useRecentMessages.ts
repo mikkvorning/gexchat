@@ -22,10 +22,10 @@ const convertTimestamp = (timestamp: Date | Timestamp | undefined): Date => {
 };
 
 /**
- * Global hook that listens to last messages for ALL user chats
+ * Hook that monitors recent messages for ALL user chats
  * Updates chat list cache when any chat receives new messages
  */
-export const useGlobalChatListener = (userId: string | undefined) => {
+export const useRecentMessages = (userId: string | undefined) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {

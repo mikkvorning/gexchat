@@ -6,14 +6,14 @@ import { useEffect } from 'react';
 import { Box, CircularProgress, Typography } from './muiImports';
 import Chat from '@/components/Chat/Chat';
 import { AppProvider } from '@/components/AppProvider';
-import { useGlobalChatListener } from '@/hooks/useGlobalChatListener';
+import { useRecentMessages } from '@/hooks/useRecentMessages';
 
 const Home = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   // Set up global chat listener for real-time updates across all chats
-  useGlobalChatListener(user?.uid);
+  useRecentMessages(user?.uid);
 
   useEffect(() => {
     if (!loading && !user) {
