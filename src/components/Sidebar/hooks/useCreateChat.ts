@@ -20,6 +20,7 @@ export const useCreateChat = (
         currentUserId!
       ),
     onSuccess: (response) => {
+      // Invalidate to trigger refetch, real-time listeners will handle the rest
       queryClient.invalidateQueries({ queryKey: ['userChats'] });
       onSuccess?.(response.chatId);
     },

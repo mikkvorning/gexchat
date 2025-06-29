@@ -1,13 +1,16 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getUserChats } from '../../../lib/chatService';
+import { useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getUserChats, subscribeToUserChats } from '../../../lib/chatService';
 import { generateAvatarColor } from '../../../utils/colors';
 import { ChatSummary } from '../../../types/types';
 
 /**
- * Custom hook for ChatList data fetching and state management
+ * Custom hook for real-time ChatList data and state management using React Query + Firestore listeners
  */
 export const useChatList = (userId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  // Initial fetch with React Query
   const {
     data: chats = [],
     isLoading,
@@ -16,12 +19,21 @@ export const useChatList = (userId: string | undefined) => {
     queryKey: ['userChats', userId],
     queryFn: () => getUserChats(userId ?? ''),
     enabled: !!userId,
-    staleTime: 2 * 60 * 1000, // Consider data fresh for 2 minutes (chats update more frequently)
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    retry: 1, // Only retry once on failure
-    refetchOnWindowFocus: false, // Don't refetch when window gains focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    staleTime: Infinity, // Never consider stale since we have real-time updates
   });
+
+  // Real-time updates that sync with React Query cache
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsubscribe = subscribeToUserChats(userId, (chatsData) => {
+      queryClient.setQueryData(['userChats', userId], chatsData);
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [userId, queryClient]);
 
   // Generate stable color mappings for users
   const userColors = useMemo(() => {

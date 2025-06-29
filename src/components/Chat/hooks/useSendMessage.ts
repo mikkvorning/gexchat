@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { sendMessage } from '../../../lib/chatService';
 
 interface UseSendMessageProps {
@@ -13,7 +13,6 @@ interface UseSendMessageProps {
 export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
   const [messageText, setMessageText] = useState('');
   const messageInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -27,11 +26,7 @@ export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
       content: string;
     }) => sendMessage(chatId, senderId, content),
     onSuccess: () => {
-      // Invalidate and refetch messages
-      queryClient.invalidateQueries({
-        queryKey: ['chatMessages', chatId],
-      });
-      // Clear input
+      // Clear input - no need to invalidate queries since we use real-time listeners
       setMessageText('');
       // Refocus input
       messageInputRef.current?.focus();

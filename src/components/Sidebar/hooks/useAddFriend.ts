@@ -10,6 +10,7 @@ export const useAddFriend = (currentUserId: string | undefined) => {
   const addFriendMutation = useMutation({
     mutationFn: (friendId: string) => addFriend(currentUserId!, friendId),
     onSuccess: () => {
+      // Invalidate to trigger refetch, real-time listeners will handle the rest
       queryClient.invalidateQueries({ queryKey: ['userChats'] });
     },
     onError: (error) => {

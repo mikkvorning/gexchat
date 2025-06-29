@@ -1,11 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
-import { getChat, getChatMessages } from '../../../lib/chatService';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getChat,
+  getChatMessages,
+  subscribeToChat,
+  subscribeToMessages,
+} from '../../../lib/chatService';
 
 /**
- * Custom hook for fetching chat data and messages
+ * Custom hook for real-time chat data and messages using React Query + Firestore listeners
  */
 export const useChat = (chatId: string | null) => {
-  // Get chat data
+  const queryClient = useQueryClient();
+
+  // Initial fetch with React Query (fast first load from cache)
   const {
     data: chat,
     isLoading: chatLoading,
@@ -14,6 +22,7 @@ export const useChat = (chatId: string | null) => {
     queryKey: ['chat', chatId],
     queryFn: () => getChat(chatId!),
     enabled: !!chatId,
+    staleTime: Infinity, // Never consider stale since we have real-time updates
   });
 
   // Get chat messages
@@ -25,7 +34,26 @@ export const useChat = (chatId: string | null) => {
     queryKey: ['chatMessages', chatId],
     queryFn: () => getChatMessages(chatId!),
     enabled: !!chatId,
+    staleTime: Infinity, // Never consider stale since we have real-time updates
   });
+
+  // Real-time updates that sync with React Query cache
+  useEffect(() => {
+    if (!chatId) return;
+
+    const chatUnsubscribe = subscribeToChat(chatId, (chatData) => {
+      queryClient.setQueryData(['chat', chatId], chatData);
+    });
+
+    const messagesUnsubscribe = subscribeToMessages(chatId, (messagesData) => {
+      queryClient.setQueryData(['chatMessages', chatId], messagesData);
+    });
+
+    return () => {
+      chatUnsubscribe?.();
+      messagesUnsubscribe?.();
+    };
+  }, [chatId, queryClient]);
 
   return {
     chat,

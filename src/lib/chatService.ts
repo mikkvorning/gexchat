@@ -12,6 +12,8 @@ import {
   orderBy,
   limit,
   Timestamp,
+  onSnapshot,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -448,4 +450,220 @@ export const initializeUserDocument = async (
   }
 
   return userSnap.data();
+};
+
+/**
+ * Subscribe to real-time messages for a specific chat
+ */
+export const subscribeToMessages = (
+  chatId: string,
+  callback: (messages: Message[]) => void
+): Unsubscribe => {
+  if (!chatId) {
+    throw new Error('Chat ID is required');
+  }
+
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const messages: Message[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          timestamp: convertTimestamp(data.timestamp as Date | Timestamp),
+        };
+      }) as Message[];
+
+      callback(messages);
+    },
+    (error) => {
+      console.error('Error in messages subscription:', error);
+    }
+  );
+};
+
+/**
+ * Subscribe to real-time chat data
+ */
+export const subscribeToChat = (
+  chatId: string,
+  callback: (chat: Chat | null) => void
+): Unsubscribe => {
+  if (!chatId) {
+    throw new Error('Chat ID is required');
+  }
+
+  const chatRef = doc(db, 'chats', chatId);
+
+  return onSnapshot(
+    chatRef,
+    (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        const chat = { id: doc.id, ...data } as Chat;
+        chat.createdAt = convertTimestamp(data.createdAt as Date | Timestamp);
+        callback(chat);
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      console.error('Error in chat subscription:', error);
+    }
+  );
+};
+
+/**
+ * Subscribe to real-time user chats list
+ */
+export const subscribeToUserChats = (
+  userId: string,
+  callback: (chats: ChatSummary[]) => void
+): Unsubscribe => {
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  const userRef = doc(db, 'users', userId);
+
+  return onSnapshot(
+    userRef,
+    async (userDoc) => {
+      if (!userDoc.exists()) {
+        callback([]);
+        return;
+      }
+
+      const userData = userDoc.data();
+      const chatIds: string[] = userData.chats || [];
+
+      if (chatIds.length === 0) {
+        callback([]);
+        return;
+      }
+
+      try {
+        // Get all chat documents in parallel
+        const chatDocs = await Promise.all(
+          chatIds.map(async (chatId) => {
+            const chatRef = doc(db, 'chats', chatId);
+            const chatSnap = await getDoc(chatRef);
+            return { chatId, chatSnap };
+          })
+        );
+
+        // Collect all unique participant IDs
+        const allParticipantIds = new Set<string>();
+        const validChats: { chatId: string; chat: Chat }[] = [];
+
+        chatDocs.forEach(({ chatId, chatSnap }) => {
+          if (chatSnap.exists()) {
+            const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
+            validChats.push({ chatId, chat });
+
+            // Collect participant IDs (excluding current user)
+            chat.participants
+              .map((p) => p.userId)
+              .filter((id) => id !== userId)
+              .forEach((id) => allParticipantIds.add(id));
+          }
+        });
+
+        // Fetch all participant data in parallel
+        const participantData = new Map<string, BaseUser>();
+        if (allParticipantIds.size > 0) {
+          const participantDocs = await Promise.all(
+            Array.from(allParticipantIds).map(async (participantId) => {
+              const participantRef = doc(db, 'users', participantId);
+              const participantSnap = await getDoc(participantRef);
+              return { participantId, participantSnap };
+            })
+          );
+
+          participantDocs.forEach(({ participantId, participantSnap }) => {
+            if (participantSnap.exists()) {
+              const data = participantSnap.data();
+              participantData.set(participantId, {
+                id: participantSnap.id,
+                displayName: data.displayName || 'Unknown User',
+                avatarUrl: data.avatarUrl,
+                status: data.status || 'offline',
+              });
+            }
+          });
+        }
+
+        // Get last messages for all chats in parallel
+        const chatSummaries = await Promise.all(
+          validChats.map(async ({ chatId, chat }) => {
+            // Get other participants
+            const otherParticipantIds = chat.participants
+              .map((p) => p.userId)
+              .filter((id) => id !== userId);
+
+            const otherParticipants: BaseUser[] = otherParticipantIds
+              .map((id) => participantData.get(id))
+              .filter((participant): participant is BaseUser => !!participant);
+
+            // Get last message
+            const messagesRef = collection(db, 'chats', chatId, 'messages');
+            const lastMessageQuery = query(
+              messagesRef,
+              orderBy('timestamp', 'desc'),
+              limit(1)
+            );
+            const lastMessageSnap = await getDocs(lastMessageQuery);
+
+            let lastMessage: Message | undefined;
+            if (!lastMessageSnap.empty) {
+              const lastMessageDoc = lastMessageSnap.docs[0];
+              const messageData = lastMessageDoc.data();
+              lastMessage = {
+                id: lastMessageDoc.id,
+                chatId: chatId,
+                senderId: messageData.senderId,
+                content: messageData.content,
+                timestamp: convertTimestamp(
+                  messageData.timestamp as Date | Timestamp
+                ),
+                edited: messageData.edited || false,
+                replyTo: messageData.replyTo,
+                attachments: messageData.attachments,
+              };
+            }
+
+            return {
+              chatId: chat.id,
+              type: chat.type,
+              name: chat.name,
+              otherParticipants,
+              lastMessage,
+              unreadCount: chat.unreadCount || 0,
+              updatedAt:
+                lastMessage?.timestamp ||
+                convertTimestamp(chat.createdAt as Date | Timestamp),
+            } as ChatSummary;
+          })
+        );
+
+        // Sort by last activity
+        const sortedChats = chatSummaries.sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        callback(sortedChats);
+      } catch (error) {
+        console.error('Error fetching chat summaries:', error);
+        callback([]);
+      }
+    },
+    (error) => {
+      console.error('Error in user chats subscription:', error);
+    }
+  );
 };
