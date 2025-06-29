@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   Avatar,
   List,
@@ -17,6 +17,98 @@ import {
   formatLastMessage,
   formatTimestamp,
 } from '../utils/chatListUtils';
+import { ChatSummary } from '../../../types/types';
+
+// Loading state component
+const LoadingState = ({ message }: { message: string }) => (
+  <Box sx={{ p: 2, textAlign: 'center' }}>
+    <Typography variant='body2' color='text.secondary'>
+      {message}
+    </Typography>
+  </Box>
+);
+
+// Individual chat item component
+const ChatItem = React.memo(
+  ({
+    chat,
+    userColors,
+    onChatSelect,
+  }: {
+    chat: ChatSummary;
+    userColors: Record<string, string>;
+    onChatSelect: (chatId: string) => void;
+  }) => {
+    const avatarProps = getChatAvatarProps(chat, userColors);
+    const hasUnread = chat.unreadCount > 0;
+
+    const handleClick = useCallback(() => {
+      onChatSelect(chat.chatId);
+    }, [chat.chatId, onChatSelect]);
+
+    return (
+      <ListItem
+        onClick={handleClick}
+        sx={{
+          borderRadius: 1,
+          cursor: 'pointer',
+          py: 1,
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+        }}
+      >
+        <Badge
+          badgeContent={chat.unreadCount}
+          color='primary'
+          invisible={!hasUnread}
+          sx={{ mr: 2 }}
+        >
+          <Avatar sx={avatarProps.sx}>{avatarProps.children}</Avatar>
+        </Badge>
+        <ListItemText
+          primary={
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                variant='subtitle2'
+                sx={{
+                  fontWeight: hasUnread ? 'bold' : 'normal',
+                }}
+              >
+                {getChatDisplayName(chat)}
+              </Typography>
+              {chat.lastMessage && (
+                <Typography variant='caption' color='text.secondary'>
+                  {formatTimestamp(chat.lastMessage.timestamp)}
+                </Typography>
+              )}
+            </Box>
+          }
+          secondary={
+            <Typography
+              variant='body2'
+              color='text.secondary'
+              sx={{
+                fontWeight: hasUnread ? 'medium' : 'normal',
+                opacity: hasUnread ? 1 : 0.7,
+              }}
+            >
+              {formatLastMessage(chat)}
+            </Typography>
+          }
+        />
+      </ListItem>
+    );
+  }
+);
+
+ChatItem.displayName = 'ChatItem';
 
 const ChatList: React.FC = () => {
   const { user } = useAuth();
@@ -28,101 +120,36 @@ const ChatList: React.FC = () => {
   // Use custom hook for data and state management
   const { chats, userColors, isLoading, error } = useChatList(currentUserId);
 
+  // Memoize the chat selection handler
+  const handleChatSelect = useCallback(
+    (chatId: string) => {
+      setSelectedChat(chatId);
+    },
+    [setSelectedChat]
+  );
+
   if (isLoading) {
-    return (
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant='body2' color='text.secondary'>
-          Loading chats...
-        </Typography>
-      </Box>
-    );
+    return <LoadingState message='Loading chats...' />;
   }
 
   if (error) {
-    return (
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant='body2' color='error'>
-          Failed to load chats
-        </Typography>
-      </Box>
-    );
+    return <LoadingState message='Failed to load chats' />;
   }
 
   if (chats.length === 0) {
-    return (
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant='body2' color='text.secondary'>
-          No chats yet. Start a conversation!
-        </Typography>
-      </Box>
-    );
+    return <LoadingState message='No chats yet. Start a conversation!' />;
   }
 
   return (
     <List>
-      {chats.map((chat) => {
-        const avatarProps = getChatAvatarProps(chat, userColors);
-        return (
-          <ListItem
-            key={chat.chatId}
-            onClick={() => setSelectedChat(chat.chatId)}
-            sx={{
-              borderRadius: 1,
-              cursor: 'pointer',
-              py: 1,
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            <Badge
-              badgeContent={chat.unreadCount}
-              color='primary'
-              invisible={chat.unreadCount === 0}
-              sx={{ mr: 2 }}
-            >
-              <Avatar sx={avatarProps.sx}>{avatarProps.children}</Avatar>
-            </Badge>
-            <ListItemText
-              primary={
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography
-                    variant='subtitle2'
-                    sx={{
-                      fontWeight: chat.unreadCount > 0 ? 'bold' : 'normal',
-                    }}
-                  >
-                    {getChatDisplayName(chat)}
-                  </Typography>
-                  {chat.lastMessage && (
-                    <Typography variant='caption' color='text.secondary'>
-                      {formatTimestamp(chat.lastMessage.timestamp)}
-                    </Typography>
-                  )}
-                </Box>
-              }
-              secondary={
-                <Typography
-                  variant='body2'
-                  color='text.secondary'
-                  sx={{
-                    fontWeight: chat.unreadCount > 0 ? 'medium' : 'normal',
-                    opacity: chat.unreadCount > 0 ? 1 : 0.7,
-                  }}
-                >
-                  {formatLastMessage(chat)}
-                </Typography>
-              }
-            />
-          </ListItem>
-        );
-      })}
+      {chats.map((chat) => (
+        <ChatItem
+          key={chat.chatId}
+          chat={chat}
+          userColors={userColors}
+          onChatSelect={handleChatSelect}
+        />
+      ))}
     </List>
   );
 };

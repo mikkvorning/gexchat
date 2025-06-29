@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GexChat
+
+A modern real-time chat application built with React, Next.js, Tailwind CSS, and Firebase.
+
+## Features
+
+- **Real-time messaging** - Messages appear instantly without page refresh
+- **Live chat updates** - All chats update in real-time, even when not actively viewing them
+- **User authentication** - Secure login/logout with Firebase Auth
+- **Modern UI** - Clean, responsive design with Material-UI components
+- **Friend system** - Add contacts and start conversations
+- **Chat management** - Organized chat list with recent activity sorting
+
+## Tech Stack
+
+- **Frontend**: React, Next.js 15, TypeScript
+- **Styling**: Tailwind CSS, Material-UI
+- **Backend**: Firebase (Firestore, Auth)
+- **State Management**: React Query v5
+- **Real-time**: Firestore onSnapshot listeners
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Real-Time Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The app uses an optimized real-time system:
 
-## Learn More
+- **Global Chat Listener**: Monitors last messages for ALL user chats efficiently
+- **Active Chat Listener**: Provides full message stream for the currently open chat
+- **React Query Integration**: Hybrid caching for fast initial loads and real-time updates
+- **Smart Network Usage**: Only syncs necessary data to minimize bandwidth
 
-To learn more about Next.js, take a look at the following resources:
+## Development
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The project structure follows Next.js 15 App Router conventions with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/src/app` - App router pages and layouts
+- `/src/components` - Reusable React components
+- `/src/hooks` - Custom hooks for data and state management
+- `/src/lib` - Firebase configuration and service functions
+- `/src/types` - TypeScript type definitions
 
-## Deploy on Vercel
+## Firebase Setup
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+You'll need to configure Firebase with your own project credentials. Create a `.env.local` file with your Firebase config.
