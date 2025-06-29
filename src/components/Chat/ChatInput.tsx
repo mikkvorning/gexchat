@@ -5,9 +5,10 @@ import { useSendMessage } from './hooks/useSendMessage';
 interface ChatInputProps {
   chatId: string | null;
   userId: string | undefined;
+  onSendError?: (message: string) => void;
 }
 
-const ChatInput = ({ chatId, userId }: ChatInputProps) => {
+const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
   const {
     messageText,
     setMessageText,
@@ -15,7 +16,7 @@ const ChatInput = ({ chatId, userId }: ChatInputProps) => {
     sendMessageMutation,
     handleSendMessage,
     handleKeyPress,
-  } = useSendMessage({ chatId, userId });
+  } = useSendMessage({ chatId, userId, onError: onSendError });
 
   return (
     <Paper

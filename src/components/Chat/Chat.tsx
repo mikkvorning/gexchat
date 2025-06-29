@@ -3,10 +3,12 @@ import { useAuth } from '../AuthProvider';
 import { useAppContext } from '../AppProvider';
 import { useChat } from './hooks/useChat';
 import { useChatEffects } from './hooks/useChatEffects';
+import { useMessageError } from './hooks/useMessageError';
 import { getChatDisplayName } from './utils/chatUtils';
 import ChatHeader from './ChatHeader';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
+import ErrorRibbon from './ErrorRibbon';
 
 const Chat = () => {
   const { user } = useAuth();
@@ -19,6 +21,16 @@ const Chat = () => {
     messages,
     messageInputRef: { current: null }, // We'll handle this in ChatInput now
   });
+
+  // Error handling for send messages
+  const {
+    showError,
+    failedMessage,
+    truncateMessage,
+    handleError,
+    handleClose,
+    handleRetry,
+  } = useMessageError();
 
   if (!selectedChat) {
     return (
@@ -93,8 +105,21 @@ const Chat = () => {
         messagesEndRef={messagesEndRef}
       />
 
+      {/* Error ribbon */}
+      <ErrorRibbon
+        isVisible={showError}
+        failedMessage={failedMessage}
+        onRetry={handleRetry}
+        onClose={handleClose}
+        truncateMessage={truncateMessage}
+      />
+
       {/* Chat input */}
-      <ChatInput chatId={selectedChat} userId={user?.uid} />
+      <ChatInput
+        chatId={selectedChat}
+        userId={user?.uid}
+        onSendError={handleError}
+      />
     </Box>
   );
 };

@@ -45,3 +45,4 @@ export { default as InputLabel } from '@mui/material/InputLabel';
 export { default as Modal } from '@mui/material/Modal';
 export { default as Backdrop } from '@mui/material/Backdrop';
 export { default as Fade } from '@mui/material/Fade';
+export { default as Snackbar } from '@mui/material/Snackbar';

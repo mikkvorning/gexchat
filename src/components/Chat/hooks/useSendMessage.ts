@@ -5,14 +5,35 @@ import { sendMessage } from '../../../lib/chatService';
 interface UseSendMessageProps {
   chatId: string | null;
   userId: string | undefined;
+  onError?: (message: string, retryCallback: () => void) => void;
 }
 
 /**
  * Custom hook for handling message sending functionality
  */
-export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
+export const useSendMessage = ({
+  chatId,
+  userId,
+  onError,
+}: UseSendMessageProps) => {
   const [messageText, setMessageText] = useState('');
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
+  const [failedMessage, setFailedMessage] = useState<string>('');
   const messageInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function for retry functionality
+  // This function allows resending a failed message with its exact original content,
+  // independent of what's currently in the input field. Used by the error ribbon
+  // retry mechanism to resend failed messages without affecting user's current typing.
+  const retrySendMessage = (content: string) => {
+    if (!chatId || !userId) return;
+
+    sendMessageMutation.mutate({
+      chatId,
+      senderId: userId,
+      content,
+    });
+  };
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -26,13 +47,20 @@ export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
       content: string;
     }) => sendMessage(chatId, senderId, content),
     onSuccess: () => {
-      // Clear input - no need to invalidate queries since we use real-time listeners
-      setMessageText('');
-      // Refocus input
+      // Message sent successfully, input was already cleared optimistically
       messageInputRef.current?.focus();
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('Failed to send message:', error);
+      // Store the failed message for potential retry
+      setFailedMessage(variables.content);
+      // Show error snackbar
+      setShowErrorSnackbar(true);
+      // Call external error handler if provided
+      if (onError) {
+        onError(variables.content, () => retrySendMessage(variables.content));
+      }
+      messageInputRef.current?.focus();
     },
   });
 
@@ -47,11 +75,19 @@ export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
       return;
     }
 
+    const messageToSend = messageText.trim();
+
+    // Optimistically clear the input immediately for better UX
+    setMessageText('');
+
     sendMessageMutation.mutate({
       chatId,
       senderId: userId,
-      content: messageText.trim(),
+      content: messageToSend,
     });
+
+    // Keep focus on input after initiating send
+    messageInputRef.current?.focus();
   };
 
   // Handle Enter key press
@@ -62,6 +98,29 @@ export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
     }
   };
 
+  // Handle snackbar close
+  const handleCloseSnackbar = () => {
+    setShowErrorSnackbar(false);
+    setFailedMessage('');
+  };
+
+  // Handle retry button click
+  const handleRetry = () => {
+    if (failedMessage && chatId && userId) {
+      // Directly resend the failed message
+      sendMessageMutation.mutate({
+        chatId,
+        senderId: userId,
+        content: failedMessage,
+      });
+
+      // Clear the error state since we're retrying
+      setShowErrorSnackbar(false);
+      setFailedMessage('');
+      messageInputRef.current?.focus();
+    }
+  };
+
   return {
     messageText,
     setMessageText,
@@ -69,5 +128,9 @@ export const useSendMessage = ({ chatId, userId }: UseSendMessageProps) => {
     sendMessageMutation,
     handleSendMessage,
     handleKeyPress,
+    showErrorSnackbar,
+    handleCloseSnackbar,
+    failedMessage,
+    handleRetry,
   };
 };

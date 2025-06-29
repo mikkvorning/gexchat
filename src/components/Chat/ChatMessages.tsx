@@ -1,6 +1,6 @@
 import { Box, Typography } from '../../app/muiImports';
 import { Message } from '../../types/types';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -15,6 +15,8 @@ const ChatMessages = ({
 }: ChatMessagesProps) => {
   const previousMessageCountRef = useRef(0);
   const chatIdRef = useRef<string | null>(null);
+  const [previousCount, setPreviousCount] = useState(0);
+  const isInitialLoadRef = useRef(true);
 
   // Track if this is a new message or just switching chats
   useEffect(() => {
@@ -24,22 +26,39 @@ const ChatMessages = ({
     if (currentChatId !== chatIdRef.current) {
       chatIdRef.current = currentChatId;
       previousMessageCountRef.current = messages.length;
+      setPreviousCount(messages.length);
+      isInitialLoadRef.current = true; // Mark as initial load for new chat
       return;
     }
 
-    // Update counter for same chat
+    // For same chat, check if this is the very first load
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      previousMessageCountRef.current = messages.length;
+      setPreviousCount(messages.length);
+      return;
+    }
+
+    // Normal case: update counter for same chat after initial load
+    setPreviousCount(previousMessageCountRef.current);
     previousMessageCountRef.current = messages.length;
   }, [messages]);
 
   return (
-    <Box sx={{ flex: 1, overflow: 'auto', p: 2 }} className='chat-messages'>
+    <Box
+      sx={{ flex: 1, overflow: 'auto', p: 2, overflowX: 'hidden' }}
+      className='chat-messages'
+    >
       {messages.map((message, index) => {
         const isOwnMessage = message.senderId === currentUserId;
 
-        // Only animate the newest message(s) - not when switching chats
-        const isNewMessage = index >= previousMessageCountRef.current;
+        // Only animate the newest message(s) - not when switching chats or initial loads
+        const isNewMessage = index >= previousCount;
         const shouldAnimate =
-          isNewMessage && messages[0]?.chatId === chatIdRef.current;
+          isNewMessage &&
+          !isInitialLoadRef.current &&
+          messages[0]?.chatId === chatIdRef.current &&
+          messages.length > previousCount; // Only if we actually have new messages
 
         const animationClass = shouldAnimate
           ? isOwnMessage
