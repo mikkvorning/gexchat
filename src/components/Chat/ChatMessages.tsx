@@ -24,7 +24,7 @@ const ChatMessages = ({
               mb: 2,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
+              alignItems: isOwnMessage ? 'flex-start' : 'flex-end',
             }}
           >
             <Box
