@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme Color Variables */
+:root {
+  --primary-main: #aaf07f;
+  --primary-contrast: #000000;
+  --background-paper: #191919;
+  --background-default: #181818;
+  --text-primary: #ffffff;
+  --text-secondary: #bdbdbd;
+  --success-main: #00ffe3;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  transition: width 0.2s ease;
+}
+
+::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--background-paper) 80%, transparent);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-secondary) 60%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--primary-main) 70%, transparent);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 40%, transparent)
+    color-mix(in srgb, var(--background-paper) 80%, transparent);
+}
+
+/* Chat messages specific scrollbar */
+.chat-messages::-webkit-scrollbar {
+  width: 12px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+
+.chat-messages::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--primary-main) 80%, transparent);
+}
