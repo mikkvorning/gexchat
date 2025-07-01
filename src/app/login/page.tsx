@@ -44,6 +44,28 @@ const signupSchema = loginSchema.shape({
     .max(30, 'Nickname may not exceed 30 characters'),
 });
 
+// Helper function to convert Firebase error codes to user-friendly messages
+const getFirebaseErrorMessage = (errorCode: string): string => {
+  // prettier-ignore
+  const errorMessages: Record<string, string> = {
+    'auth/user-not-found': 'No account found with this email address. Please check your email or sign up.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/user-disabled': 'This account has been disabled. Please contact support.',
+    'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
+    'auth/operation-not-allowed': 'Email/password sign-in is currently disabled. Please contact support.',
+    'auth/invalid-credential': 'Invalid email or password. Please check your credentials.',
+    'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
+    'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
+  };
+
+  return (
+    errorMessages[errorCode] ??
+    'Something went wrong. Please try again or contact support if the problem continues.'
+  );
+};
+
 const Login = () => {
   const router = useRouter();
   const { setUser } = useAuth();
@@ -124,10 +146,17 @@ const Login = () => {
       // Redirect to the home page using replace to prevent back navigation
       router.replace('/');
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Authentication failed. Please try again.';
+      let errorMessage = 'Something went wrong. Please try again.';
+
+      // Handle Firebase Auth errors with user-friendly messages
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message: string };
+        errorMessage = getFirebaseErrorMessage(firebaseError.code);
+      } else if (error instanceof Error) {
+        // Fallback for non-Firebase errors
+        errorMessage = error.message;
+      }
+
       setErrors({ email: errorMessage });
     } finally {
       setSubmitting(false);
