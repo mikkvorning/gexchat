@@ -37,8 +37,20 @@ const Sidebar: React.FC = () => {
           justifyContent='space-between'
         >
           {/* Display user name */}
-          <Button variant='text' size='large'>
-            {user?.displayName || user?.email || 'User'}
+          <Button
+            variant='text'
+            size='large'
+            sx={{
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              // Ensure text inside button also respects ellipsis
+              '& > span': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              },
+            }}
+          >
+            <span>{user?.displayName || user?.email || 'User'}</span>
           </Button>
 
           <IconButton
