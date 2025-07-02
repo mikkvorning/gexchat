@@ -14,12 +14,95 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import * as Yup from 'yup';
 import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
+import { FormikErrors, FormikTouched } from 'formik';
+import { FormHelperText } from '@mui/material';
+
+interface FormFieldConfig {
+  name: keyof FormValues;
+  label: string;
+  type?: string;
+  required?: boolean;
+  showOnSignup?: boolean; // true = signup only, false = login only, undefined = both
+}
+
+const formFields: FormFieldConfig[] = [
+  {
+    name: 'nickname',
+    label: 'Nickname',
+    required: true,
+    showOnSignup: true, // signup only
+  },
+  {
+    name: 'email',
+    label: 'Email',
+    type: 'email',
+    required: true,
+    // shows on both (undefined)
+  },
+  {
+    name: 'password',
+    label: 'Password',
+    type: 'password',
+    required: true,
+    // shows on both (undefined)
+  },
+  {
+    name: 'confirmPassword',
+    label: 'Confirm Password',
+    type: 'password',
+    required: true,
+    showOnSignup: true, // signup only
+  },
+];
+
+interface FormFieldProps {
+  field: FormFieldConfig;
+  values: FormValues;
+  errors: FormikErrors<FormValues>;
+  touched: FormikTouched<FormValues>;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
+  isSubmitting: boolean;
+}
+
+const FormField: React.FC<FormFieldProps> = ({
+  field,
+  values,
+  errors,
+  touched,
+  handleChange,
+  handleBlur,
+  isSubmitting,
+}) => (
+  <Box height={100}>
+    <TextField
+      fullWidth
+      id={field.name}
+      name={field.name}
+      label={field.label}
+      type={field.type || 'text'}
+      value={values[field.name] || ''}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      disabled={isSubmitting}
+      error={touched[field.name] && Boolean(errors[field.name])}
+      helperText={touched[field.name]}
+      margin='normal'
+    />
+    {touched[field.name] && (
+      <Box ml={2}>
+        <FormHelperText>{errors[field.name]}</FormHelperText>
+      </Box>
+    )}
+  </Box>
+);
 
 interface FormValues {
   email: string;
   password: string;
   confirmPassword?: string;
   nickname?: string;
+  authError?: string;
 }
 
 const loginSchema = Yup.object().shape({
@@ -32,6 +115,7 @@ const loginSchema = Yup.object().shape({
     .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
     .matches(/[0-9]/, 'Password must contain at least one number')
     .required('Password is required'),
+  authError: Yup.string().optional(),
 });
 
 const signupSchema = loginSchema.shape({
@@ -71,9 +155,10 @@ const Login = () => {
   const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
-  const initialValues = {
+  const initialValues: FormValues = {
     email: '',
     password: '',
+    authError: undefined,
     ...(isSignup ? { confirmPassword: '', nickname: '' } : {}),
   };
 
@@ -89,6 +174,9 @@ const Login = () => {
     { setSubmitting, setErrors }: FormikHelpers<FormValues>
   ) => {
     try {
+      // Clear any previous auth errors
+      setErrors({ authError: undefined });
+
       let userCredential;
       if (isSignup) {
         // Create the user account first
@@ -153,11 +241,10 @@ const Login = () => {
         const firebaseError = error as { code: string; message: string };
         errorMessage = getFirebaseErrorMessage(firebaseError.code);
       } else if (error instanceof Error) {
-        // Fallback for non-Firebase errors
-        errorMessage = error.message;
+        errorMessage = error.message; // Fallback for non-Firebase errors
       }
 
-      setErrors({ email: errorMessage });
+      setErrors({ authError: errorMessage });
     } finally {
       setSubmitting(false);
     }
@@ -175,14 +262,19 @@ const Login = () => {
         elevation={3}
         sx={{ width: '100%', maxWidth: 400, p: 4, borderRadius: 3 }}
       >
-        <Box textAlign='center' mb={4}>
-          <Typography variant='h4' fontWeight={700} mb={1} color='text.primary'>
+        <Box textAlign='center' mb={2}>
+          <Typography variant='h5' fontWeight='bold' mb={1} color='primary'>
             {isSignup ? 'Create an Account' : 'Welcome to GexChat'}
           </Typography>
-          <Typography color='text.secondary'>
-            Connect and chat with someone, somewhere. Maybe...
+
+          {/* Some kinda casual tagline here */}
+          <Typography variant='subtitle2' px={2}>
+            {isSignup
+              ? 'Now which name to use? Hmmm...'
+              : "Let's see if you still remember your login!"}
           </Typography>
         </Box>
+
         <Formik
           key={isSignup ? 'signup' : 'signin'}
           initialValues={initialValues}
@@ -206,74 +298,33 @@ const Login = () => {
               component='form'
               method='post'
               autoComplete='off'
+              noValidate
               onSubmit={handleSubmit}
             >
-              {isSignup && (
-                <Box mb={3}>
-                  <TextField
-                    fullWidth
-                    id='nickname'
-                    name='nickname'
-                    label='Nickname'
-                    value={values.nickname}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.nickname && Boolean(errors.nickname)}
-                    helperText={touched.nickname && errors.nickname}
+              {formFields
+                .filter((field) => {
+                  // Show field if:
+                  // - showOnSignup is undefined (shows on both)
+                  // - showOnSignup is true and we're in signup mode
+                  // - showOnSignup is false and we're in login mode
+                  return (
+                    field.showOnSignup === undefined ||
+                    field.showOnSignup === isSignup
+                  );
+                })
+                .map((field) => (
+                  <FormField
+                    key={field.name}
+                    field={field}
+                    values={values}
+                    errors={errors}
+                    touched={touched}
+                    handleChange={handleChange}
+                    handleBlur={handleBlur}
+                    isSubmitting={isSubmitting}
                   />
-                </Box>
-              )}
-              <Box mb={3}>
-                <TextField
-                  fullWidth
-                  label='Email'
-                  name='email'
-                  type='email'
-                  value={values.email}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  disabled={isSubmitting}
-                  error={Boolean(errors.email && touched.email)}
-                  helperText={touched.email && errors.email}
-                  margin='normal'
-                />
-              </Box>
-              <Box mb={3}>
-                <TextField
-                  fullWidth
-                  label='Password'
-                  name='password'
-                  type='password'
-                  value={values.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  disabled={isSubmitting}
-                  error={Boolean(errors.password && touched.password)}
-                  helperText={touched.password && errors.password}
-                  margin='normal'
-                />
-              </Box>
-              {isSignup && (
-                <Box mb={3}>
-                  <TextField
-                    fullWidth
-                    label='Confirm Password'
-                    name='confirmPassword'
-                    type='password'
-                    value={values.confirmPassword}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    disabled={isSubmitting}
-                    error={Boolean(
-                      errors.confirmPassword && touched.confirmPassword
-                    )}
-                    helperText={
-                      touched.confirmPassword && errors.confirmPassword
-                    }
-                    margin='normal'
-                  />
-                </Box>
-              )}
+                ))}
+
               <Button
                 fullWidth
                 type='submit'
@@ -290,6 +341,17 @@ const Login = () => {
                   ? 'Sign up'
                   : 'Sign in'}
               </Button>
+
+              {errors.authError && (
+                <Typography
+                  color='error'
+                  variant='body2'
+                  my={2}
+                  textAlign='center'
+                >
+                  {errors.authError}
+                </Typography>
+              )}
             </Box>
           )}
         </Formik>
