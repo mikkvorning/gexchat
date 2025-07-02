@@ -6,6 +6,7 @@
 export interface BaseUser {
   id: string;
   displayName: string;
+  username: string; // Lowercase version for case-insensitive searches
   avatarUrl?: string;
   status: 'online' | 'offline' | 'away';
 }

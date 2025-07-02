@@ -4,6 +4,7 @@ import { Chat, Message, BaseUser, CurrentUser } from '../types/types';
 export const currentUser: CurrentUser = {
   id: 'lawyer',
   displayName: 'Brian Unger',
+  username: 'brian unger',
   email: 'brian.unger@example.com',
   status: 'online',
   createdAt: new Date('2025-01-01'),
@@ -29,36 +30,43 @@ export const mockContacts: BaseUser[] = [
   {
     id: 'dennis',
     displayName: 'Dennis Reynolds',
+    username: 'dennis reynolds',
     status: 'online',
   },
   {
     id: 'charlie',
     displayName: 'Charlie Kelly',
+    username: 'charlie kelly',
     status: 'away',
   },
   {
     id: 'mac',
     displayName: 'Mac',
+    username: 'mac',
     status: 'online',
   },
   {
     id: 'dee',
     displayName: 'Dee Reynolds',
+    username: 'dee reynolds',
     status: 'offline',
   },
   {
     id: 'frank',
     displayName: 'Frank Reynolds',
+    username: 'frank reynolds',
     status: 'online',
   },
   {
     id: 'cricket',
     displayName: 'Rickety Cricket',
+    username: 'rickety cricket',
     status: 'offline',
   },
   {
     id: 'waitress',
     displayName: 'The Waitress',
+    username: 'the waitress',
     status: 'away',
   },
 ];

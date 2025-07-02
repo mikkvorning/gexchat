@@ -198,6 +198,7 @@ const Login = () => {
           id: userCredential.user.uid,
           email: values.email,
           displayName: nickname,
+          username: nickname.toLowerCase(), // Store lowercase version for search
           avatarUrl: '',
           status: 'online',
           createdAt: new Date(),

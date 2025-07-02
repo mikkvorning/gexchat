@@ -237,6 +237,8 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         participantData.set(participantId, {
           id: participantSnap.id,
           displayName: data.displayName || 'Unknown User',
+          username:
+            data.username || (data.displayName || 'unknown user').toLowerCase(),
           avatarUrl: data.avatarUrl,
           status: data.status || 'offline',
         });
