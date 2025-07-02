@@ -21,8 +21,9 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const filterContacts = (contacts: BaseUser[], searchValue: string) => {
+  const lowerSearchValue = searchValue.toLowerCase();
   const filteredBySearch = contacts.filter((contact) =>
-    contact.displayName.toLowerCase().includes(searchValue.toLowerCase())
+    contact.username.includes(lowerSearchValue)
   );
 
   const online = filteredBySearch.filter(

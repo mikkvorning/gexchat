@@ -34,29 +34,36 @@ export const useUserSearch = (currentUserId: string | undefined) => {
   const searchUsers = useCallback(
     async (searchTerm: string, currentUserId: string) => {
       if (!searchTerm || searchTerm.length < 2) return []; // Minimum 2 characters
+
       const usersRef = collection(db, 'users');
-      // Query by displayName only
+      const lowerSearchTerm = searchTerm.toLowerCase(); // Convert search term to lowercase
+
+      // Query by username for case-insensitive search
       const displayNameQuery = query(
         usersRef,
-        where('displayName', '>=', searchTerm),
-        where('displayName', '<=', searchTerm + '\uf8ff'),
+        where('username', '>=', lowerSearchTerm),
+        where('username', '<=', lowerSearchTerm + '\uf8ff'),
         limit(10) // Limit results to prevent excessive data transfer
       );
+
       const displayNameSnap = await getDocs(displayNameQuery);
       const results: SearchResult[] = [];
+
       displayNameSnap.forEach((doc) => {
         if (doc.id !== currentUserId) {
           const data = doc.data() as {
             email: string;
             displayName: string;
+            username: string;
           };
           results.push({
             id: doc.id,
             email: data.email,
-            displayName: data.displayName,
+            displayName: data.displayName, // Still return the original displayName for display
           });
         }
       });
+
       return results;
     },
     []

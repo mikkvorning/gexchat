@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase';
 
 export const ProfileSettings = () => {
   const { user } = useAuth();
-  const [nickname, setNickname] = useState(user?.displayName || '');
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -19,12 +19,12 @@ export const ProfileSettings = () => {
     try {
       // Update Firebase Auth profile
       await updateProfile(user, {
-        displayName: nickname,
+        displayName,
       });
 
-      // Update Firestore user document
+      // Update Firestore user document - only update displayName, never username
       await updateDoc(doc(db, 'users', user.uid), {
-        nickname: nickname,
+        displayName,
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -48,15 +48,15 @@ export const ProfileSettings = () => {
         />
         <TextField
           fullWidth
-          label='Nickname'
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
+          label='Display Name'
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
           sx={{ mb: 3 }}
         />
         <Button
           variant='contained'
           onClick={handleSave}
-          disabled={saving || nickname === user?.displayName}
+          disabled={saving || displayName === user?.displayName}
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>
