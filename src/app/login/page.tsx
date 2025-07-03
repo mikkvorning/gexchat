@@ -8,6 +8,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
+  User,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Formik, FormikHelpers } from 'formik';
@@ -166,6 +167,8 @@ const Login = () => {
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState<string>('');
+  const [unverifiedUser, setUnverifiedUser] = useState<User | null>(null);
+  const [hasResentEmail, setHasResentEmail] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
 
   // Load verification state from sessionStorage on mount
@@ -189,6 +192,8 @@ const Login = () => {
     }
     setEmailVerificationSent(false);
     setVerificationEmail('');
+    setUnverifiedUser(null);
+    setHasResentEmail(false);
     clearVerificationEmail();
     setIsSignup(!isSignup);
   };
@@ -198,17 +203,24 @@ const Login = () => {
 
     setIsResending(true);
     try {
-      // First try to get the current user from auth state
-      const currentUser = auth.currentUser;
-      if (currentUser && currentUser.email === verificationEmail) {
-        await sendEmailVerification(currentUser);
+      // Try to use the stored unverified user first
+      if (unverifiedUser && unverifiedUser.email === verificationEmail) {
+        await sendEmailVerification(unverifiedUser);
+        setHasResentEmail(true);
         return;
       }
 
-      // If no current user, we can't resend verification emails
-      // This is a limitation of Firebase - you need an authenticated user to resend
+      // Fallback: try to get the current user from auth state
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.email === verificationEmail) {
+        await sendEmailVerification(currentUser);
+        setHasResentEmail(true);
+        return;
+      }
+
+      // If no user available, we can't resend verification emails
       console.error('No authenticated user found for resending verification');
-      // You could show an error message here or guide them to try signing up again
+      // You could show an error message here
     } catch (error: unknown) {
       console.error('Failed to resend verification email:', error);
       // You could show an error message here
@@ -287,6 +299,12 @@ const Login = () => {
 
         // Check if email is verified
         if (!userCredential.user.emailVerified) {
+          // Store the unverified user so we can resend verification emails
+          setUnverifiedUser(userCredential.user);
+          setVerificationEmail(values.email);
+          // Store in sessionStorage for persistence
+          saveVerificationEmail(values.email);
+
           setErrors({
             authError: getFirebaseErrorMessage('auth/email-not-verified'),
           });
@@ -299,6 +317,7 @@ const Login = () => {
 
       // Clear any pending verification email from sessionStorage
       clearVerificationEmail();
+      setUnverifiedUser(null);
 
       // Set the session cookie properly with the user's ID
       document.cookie = `session=${userCredential.user.uid}; path=/;`;
@@ -460,7 +479,11 @@ const Login = () => {
                   my={2}
                   textAlign='center'
                 >
-                  {errors.authError}
+                  {errors.authError ===
+                    getFirebaseErrorMessage('auth/email-not-verified') &&
+                  hasResentEmail
+                    ? 'Check your email inbox for a new verification link.'
+                    : errors.authError}
                 </Typography>
               )}
 
@@ -469,7 +492,9 @@ const Login = () => {
                 <Box mt={4} textAlign='center'>
                   <Typography color='text.secondary'>
                     {errors.authError?.includes('verify your email')
-                      ? "Didn't receive a verification email?"
+                      ? hasResentEmail
+                        ? "Still didn't receive it?"
+                        : "Didn't receive a verification email?"
                       : isSignup
                       ? 'Already have an account?'
                       : "Don't have an account?"}
@@ -494,6 +519,8 @@ const Login = () => {
                       getFirebaseErrorMessage('auth/email-not-verified')
                         ? isResending
                           ? 'Resending...'
+                          : hasResentEmail
+                          ? 'Resend again'
                           : 'Resend'
                         : isSignup
                         ? 'Sign in'
