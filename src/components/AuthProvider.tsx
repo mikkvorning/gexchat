@@ -10,17 +10,19 @@ export const AuthContext = createContext<{
   loading: boolean;
   error?: Error | undefined;
   setUser: (user: User | null) => void;
+  isEmailVerified: boolean;
 }>({
   user: null,
   loading: true,
   setUser: () => {},
+  isEmailVerified: false,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(undefined);
-  const value = { user, loading, error, setUser };
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
 
   const [authUser, authLoading, authError] = useAuthState(auth);
 
@@ -28,7 +30,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(authUser ?? null);
     setLoading(authLoading);
     setError(authError);
+    setIsEmailVerified(authUser?.emailVerified ?? false);
   }, [authUser, authLoading, authError]);
+
+  const value = { user, loading, error, setUser, isEmailVerified };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

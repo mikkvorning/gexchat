@@ -3,12 +3,15 @@ import type { NextRequest } from 'next/server';
 
 const middleware = (request: NextRequest) => {
   const isAuthenticated = request.cookies.has('session');
+  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  const isVerifyEmailPage =
+    request.nextUrl.pathname.startsWith('/verify-email');
 
-  if (!isAuthenticated && !request.nextUrl.pathname.startsWith('/login')) {
+  if (!isAuthenticated && !isLoginPage && !isVerifyEmailPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (isAuthenticated && request.nextUrl.pathname.startsWith('/login')) {
+  if (isAuthenticated && isLoginPage) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

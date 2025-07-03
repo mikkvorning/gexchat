@@ -7,15 +7,21 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Formik, FormikHelpers } from 'formik';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import * as Yup from 'yup';
 import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
 import { FormikErrors, FormikTouched } from 'formik';
 import { FormHelperText } from '@mui/material';
+import {
+  saveVerificationEmail,
+  getVerificationEmail,
+  clearVerificationEmail,
+} from '@/utils/storage';
 
 interface FormFieldConfig {
   name: keyof FormValues;
@@ -142,6 +148,9 @@ const getFirebaseErrorMessage = (errorCode: string): string => {
     'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
     'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
+    'auth/expired-action-code': 'This verification link has expired. Please request a new one.',
+    'auth/invalid-action-code': 'This verification link is invalid or has already been used.',
+    'auth/email-not-verified': 'Please verify your email address before signing in. Check your inbox for the verification email.',
   };
 
   return (
@@ -154,7 +163,19 @@ const Login = () => {
   const router = useRouter();
   const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string>('');
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
+
+  // Load verification state from sessionStorage on mount
+  useEffect(() => {
+    const verificationData = getVerificationEmail();
+    if (verificationData) {
+      setVerificationEmail(verificationData.email);
+      setEmailVerificationSent(true);
+    }
+  }, []);
   const initialValues: FormValues = {
     email: '',
     password: '',
@@ -166,7 +187,34 @@ const Login = () => {
     if (formikRef.current) {
       formikRef.current.resetForm();
     }
+    setEmailVerificationSent(false);
+    setVerificationEmail('');
+    clearVerificationEmail();
     setIsSignup(!isSignup);
+  };
+
+  const handleResendVerification = async () => {
+    if (!verificationEmail) return;
+
+    setIsResending(true);
+    try {
+      // First try to get the current user from auth state
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.email === verificationEmail) {
+        await sendEmailVerification(currentUser);
+        return;
+      }
+
+      // If no current user, we can't resend verification emails
+      // This is a limitation of Firebase - you need an authenticated user to resend
+      console.error('No authenticated user found for resending verification');
+      // You could show an error message here or guide them to try signing up again
+    } catch (error: unknown) {
+      console.error('Failed to resend verification email:', error);
+      // You could show an error message here
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = async (
@@ -192,6 +240,13 @@ const Login = () => {
         await updateProfile(userCredential.user, {
           displayName: nickname,
         });
+
+        // Send email verification
+        await sendEmailVerification(userCredential.user);
+        setEmailVerificationSent(true);
+        setVerificationEmail(values.email);
+        // Persist to sessionStorage with timestamp (expires after 15 minutes)
+        saveVerificationEmail(values.email);
 
         // Save user data to Firestore
         const userDoc: CurrentUser = {
@@ -220,14 +275,30 @@ const Login = () => {
           blocked: [],
         };
         await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+
+        // Don't redirect yet - show verification message
+        return;
       } else {
         userCredential = await signInWithEmailAndPassword(
           auth,
           values.email,
           values.password
         );
-      } // Set the user in the auth context
+
+        // Check if email is verified
+        if (!userCredential.user.emailVerified) {
+          setErrors({
+            authError: getFirebaseErrorMessage('auth/email-not-verified'),
+          });
+          return;
+        }
+      }
+
+      // Set the user in the auth context
       setUser(userCredential.user);
+
+      // Clear any pending verification email from sessionStorage
+      clearVerificationEmail();
 
       // Set the session cookie properly with the user's ID
       document.cookie = `session=${userCredential.user.uid}; path=/;`;
@@ -265,12 +336,18 @@ const Login = () => {
       >
         <Box textAlign='center' mb={2}>
           <Typography variant='h5' fontWeight='bold' mb={1} color='primary'>
-            {isSignup ? 'Create an Account' : 'Welcome to GexChat'}
+            {emailVerificationSent
+              ? 'Verify Your Email'
+              : isSignup
+              ? 'Create an Account'
+              : 'Welcome to GexChat'}
           </Typography>
 
           {/* Some kinda casual tagline here */}
           <Typography variant='subtitle2' px={2}>
-            {isSignup
+            {emailVerificationSent
+              ? 'We sent a verification email to your inbox. Please click the link to verify your account before signing in.'
+              : isSignup
               ? 'Now which name to use? Hmmm...'
               : "Let's see if you still remember your login!"}
           </Typography>
@@ -302,46 +379,79 @@ const Login = () => {
               noValidate
               onSubmit={handleSubmit}
             >
-              {formFields
-                .filter((field) => {
-                  // Show field if:
-                  // - showOnSignup is undefined (shows on both)
-                  // - showOnSignup is true and we're in signup mode
-                  // - showOnSignup is false and we're in login mode
-                  return (
-                    field.showOnSignup === undefined ||
-                    field.showOnSignup === isSignup
-                  );
-                })
-                .map((field) => (
-                  <FormField
-                    key={field.name}
-                    field={field}
-                    values={values}
-                    errors={errors}
-                    touched={touched}
-                    handleChange={handleChange}
-                    handleBlur={handleBlur}
-                    isSubmitting={isSubmitting}
-                  />
-                ))}
+              {!emailVerificationSent && (
+                <>
+                  {formFields
+                    .filter((field) => {
+                      // Show field if:
+                      // - showOnSignup is undefined (shows on both)
+                      // - showOnSignup is true and we're in signup mode
+                      // - showOnSignup is false and we're in login mode
+                      return (
+                        field.showOnSignup === undefined ||
+                        field.showOnSignup === isSignup
+                      );
+                    })
+                    .map((field) => (
+                      <FormField
+                        key={field.name}
+                        field={field}
+                        values={values}
+                        errors={errors}
+                        touched={touched}
+                        handleChange={handleChange}
+                        handleBlur={handleBlur}
+                        isSubmitting={isSubmitting}
+                      />
+                    ))}
 
-              <Button
-                fullWidth
-                type='submit'
-                variant='contained'
-                color='primary'
-                disabled={isSubmitting}
-                sx={{ mt: 2 }}
-              >
-                {isSubmitting
-                  ? isSignup
-                    ? 'Signing up...'
-                    : 'Signing in...'
-                  : isSignup
-                  ? 'Sign up'
-                  : 'Sign in'}
-              </Button>
+                  <Button
+                    fullWidth
+                    type='submit'
+                    variant='contained'
+                    color='primary'
+                    disabled={isSubmitting}
+                    sx={{ mt: 2 }}
+                  >
+                    {isSubmitting
+                      ? isSignup
+                        ? 'Signing up...'
+                        : 'Signing in...'
+                      : isSignup
+                      ? 'Sign up'
+                      : 'Sign in'}
+                  </Button>
+                </>
+              )}
+
+              {emailVerificationSent && (
+                <>
+                  <Button
+                    fullWidth
+                    variant='outlined'
+                    color='primary'
+                    onClick={() => {
+                      setEmailVerificationSent(false);
+                      setVerificationEmail('');
+                      clearVerificationEmail();
+                      setIsSignup(false);
+                    }}
+                    sx={{ mt: 2 }}
+                  >
+                    Back to Sign In
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant='text'
+                    color='secondary'
+                    onClick={handleResendVerification}
+                    disabled={isResending}
+                    sx={{ mt: 1 }}
+                  >
+                    {isResending ? 'Resending...' : 'Resend Verification Email'}
+                  </Button>
+                </>
+              )}
 
               {errors.authError && (
                 <Typography
@@ -353,28 +463,48 @@ const Login = () => {
                   {errors.authError}
                 </Typography>
               )}
+
+              {/* Show appropriate link based on context */}
+              {!emailVerificationSent && (
+                <Box mt={4} textAlign='center'>
+                  <Typography color='text.secondary'>
+                    {errors.authError?.includes('verify your email')
+                      ? "Didn't receive a verification email?"
+                      : isSignup
+                      ? 'Already have an account?'
+                      : "Don't have an account?"}
+                    <Link
+                      component='button'
+                      onClick={
+                        errors.authError?.includes('verify your email')
+                          ? handleResendVerification
+                          : handleFormSwitch
+                      }
+                      sx={{
+                        color: 'primary.main',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        mx: 1,
+                        position: 'relative',
+                        top: -2,
+                      }}
+                      disabled={isResending}
+                    >
+                      {errors.authError ===
+                      getFirebaseErrorMessage('auth/email-not-verified')
+                        ? isResending
+                          ? 'Resending...'
+                          : 'Resend'
+                        : isSignup
+                        ? 'Sign in'
+                        : 'Sign up'}
+                    </Link>
+                  </Typography>
+                </Box>
+              )}
             </Box>
           )}
         </Formik>
-        <Box mt={4} textAlign='center'>
-          <Typography color='text.secondary'>
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}
-            <Link
-              component='button'
-              onClick={handleFormSwitch}
-              sx={{
-                color: 'primary.main',
-                textDecoration: 'underline',
-                cursor: 'pointer',
-                mx: 1,
-                position: 'relative',
-                top: -2,
-              }}
-            >
-              {isSignup ? 'Sign in' : 'Sign up'}
-            </Link>
-          </Typography>
-        </Box>
       </Paper>
     </Box>
   );
