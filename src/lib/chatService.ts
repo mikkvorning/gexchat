@@ -27,6 +27,126 @@ import {
 } from '@/types/types';
 
 /**
+ * Get unread count for a user using tiered counting (returns numbers only)
+ * Uses optimal approach - only checks specific breakpoint positions
+ * Respects privacy settings - returns 0 if user has disabled read receipts
+ */
+const getUnreadCountForUser = async (
+  chat: Chat,
+  userId: string,
+  chatId: string
+): Promise<number> => {
+  const participant = chat.participants.find((p) => p.userId === userId);
+  if (!participant) return 0;
+
+  // Check user's privacy settings first
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
+    const userData = userSnap.data();
+    // If user has disabled showing read receipts, don't calculate unread counts
+    if (userData?.privacy?.showReadReceipts === false) {
+      return 0;
+    }
+  }
+
+  // If we have a cached unread count, use it (most efficient)
+  if (typeof participant.unreadCount === 'number') {
+    return participant.unreadCount;
+  }
+
+  // Calculate tiered unread count
+  return await calculateTieredUnreadCount(chat, userId, chatId);
+};
+
+/**
+ * Calculate unread count using tiered system - truly optimal approach
+ * Checks specific positions (26th, 51st, 76th, 101st) to determine tier
+ */
+const calculateTieredUnreadCount = async (
+  chat: Chat,
+  userId: string,
+  chatId: string
+): Promise<number> => {
+  try {
+    const participant = chat.participants.find((p) => p.userId === userId);
+    if (!participant) return 0;
+
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+
+    // Build base query for unread messages - avoid composite index
+    let baseQuery = query(messagesRef, orderBy('timestamp', 'desc'));
+
+    if (participant.lastReadMessageId) {
+      // Get the last read message to find its timestamp
+      const lastReadMessageRef = doc(
+        messagesRef,
+        participant.lastReadMessageId
+      );
+      const lastReadMessageSnap = await getDoc(lastReadMessageRef);
+
+      if (lastReadMessageSnap.exists()) {
+        const lastReadTimestamp = lastReadMessageSnap.data().timestamp;
+        baseQuery = query(
+          messagesRef,
+          where('timestamp', '>', lastReadTimestamp),
+          orderBy('timestamp', 'desc')
+        );
+      }
+    }
+
+    const increment = 25; // Messages per tier
+    const numberOfIncrements = 4; // Total tiers to check
+
+    // First, check if we have 0-25 messages (exact count)
+    const firstCheckQuery = query(baseQuery, limit(increment + 1));
+    const firstCheckSnap = await getDocs(firstCheckQuery);
+
+    // Filter out user's own messages
+    const filteredFirstCheck = firstCheckSnap.docs.filter(
+      (doc) => doc.data().senderId !== userId
+    );
+
+    if (filteredFirstCheck.length <= increment) {
+      // 25 or fewer unread messages, return exact count
+      return filteredFirstCheck.length;
+    }
+
+    // We have 26+ messages, check each tier breakpoint using loop
+    for (let i = 1; i < numberOfIncrements; i++) {
+      const checkPosition = (i + 1) * increment + 1; // 51, 76, 101
+      const checkQuery = query(baseQuery, limit(checkPosition));
+      const checkSnap = await getDocs(checkQuery);
+
+      // Filter out user's own messages
+      const filteredMessages = checkSnap.docs.filter(
+        (doc) => doc.data().senderId !== userId
+      );
+
+      // If we have fewer messages than this position, return previous tier base count
+      if (filteredMessages.length < checkPosition) {
+        return i * increment; // Returns 25, 50, or 75 (base count for tier)
+      }
+    }
+
+    // If we reach here, we have 100+ unread messages
+    return numberOfIncrements * increment; // Returns 100
+  } catch (error) {
+    console.error('Error in calculateTieredUnreadCount:', error);
+    return 0; // Return 0 on error to prevent chat list from breaking
+  }
+};
+
+/**
+ * Helper function to increment unread count (numbers only)
+ */
+const incrementUnreadCount = (currentCount: number | undefined): number => {
+  if (currentCount === undefined || currentCount === 0) return 1;
+  return currentCount + 1;
+};
+
+/**
  * Helper function to convert Firestore Timestamp to Date
  */
 const convertTimestamp = (timestamp: Date | Timestamp | undefined): Date => {
@@ -76,9 +196,11 @@ export const createChat = async (
         | 'admin'
         | 'member',
       joinedAt: new Date(),
+      lastReadMessageId: undefined,
+      lastReadTimestamp: undefined,
+      unreadCount: 0, // Initialize with 0 unread messages
     })),
     createdAt: new Date(),
-    unreadCount: 0,
   };
 
   // Use batch operations for better performance
@@ -282,8 +404,12 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
           edited: messageData.edited || false,
           replyTo: messageData.replyTo,
           attachments: messageData.attachments,
+          readBy: messageData.readBy || [],
         };
       }
+
+      // Use cached unread count if available, otherwise calculate efficiently
+      const unreadCount = await getUnreadCountForUser(chat, userId, chatId);
 
       return {
         chatId: chat.id,
@@ -291,7 +417,7 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         name: chat.name,
         otherParticipants,
         lastMessage,
-        unreadCount: chat.unreadCount || 0,
+        unreadCount,
         updatedAt:
           lastMessage?.timestamp ||
           convertTimestamp(chat.createdAt as Date | Timestamp),
@@ -341,6 +467,7 @@ export const getChatMessages = async (chatId: string): Promise<Message[]> => {
       id: doc.id,
       ...data,
       timestamp: convertTimestamp(data.timestamp as Date | Timestamp),
+      readBy: data.readBy || [],
     };
   }) as Message[];
 };
@@ -368,19 +495,44 @@ export const sendMessage = async (
     content: content.trim(),
     timestamp: serverTimestamp(),
     edited: false,
+    readBy: [], // Initialize empty read receipts
   };
 
-  await setDoc(newMessageRef, messageData);
+  // Use batch to update both message and chat counters
+  const batch = writeBatch(db);
 
-  // Update chat's lastActivity (no more lastMessage duplication)
+  // Add the message
+  batch.set(newMessageRef, messageData);
+
+  // Update chat's lastActivity and increment unread counts for other participants
   const chatRef = doc(db, 'chats', chatId);
-  await setDoc(
-    chatRef,
-    {
+  const chatSnap = await getDoc(chatRef);
+
+  if (chatSnap.exists()) {
+    const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
+
+    // Update unread counts for all participants except the sender
+    const updatedParticipants = chat.participants.map((participant) => {
+      if (participant.userId !== senderId) {
+        const currentCount =
+          typeof participant.unreadCount === 'number'
+            ? participant.unreadCount
+            : 0;
+        return {
+          ...participant,
+          unreadCount: incrementUnreadCount(currentCount),
+        };
+      }
+      return participant;
+    });
+
+    batch.update(chatRef, {
+      participants: updatedParticipants,
       lastActivity: serverTimestamp(),
-    },
-    { merge: true }
-  );
+    });
+  }
+
+  await batch.commit();
 
   return {
     ...messageData,
@@ -437,6 +589,8 @@ export const initializeUserDocument = async (
         showStatus: true,
         showLastSeen: true,
         showActivity: true,
+        showReadReceipts: true,
+        allowReadReceipts: true,
       },
       notifications: {
         enabled: true,
@@ -452,6 +606,130 @@ export const initializeUserDocument = async (
   }
 
   return userSnap.data();
+};
+
+/**
+ * Mark messages as read for a specific user in a chat
+ */
+export const markMessagesAsRead = async (
+  chatId: string,
+  userId: string,
+  lastReadMessageId?: string
+): Promise<void> => {
+  if (!chatId || !userId) {
+    throw new Error('Chat ID and user ID are required');
+  }
+
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+
+  if (!chatSnap.exists()) {
+    throw new Error('Chat not found');
+  }
+
+  const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
+  const participantIndex = chat.participants.findIndex(
+    (p) => p.userId === userId
+  );
+
+  if (participantIndex === -1) {
+    throw new Error('User is not a participant in this chat');
+  }
+
+  // If no specific message ID provided, get the latest message
+  let messageIdToMark = lastReadMessageId;
+  if (!messageIdToMark) {
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    const lastMessageQuery = query(
+      messagesRef,
+      orderBy('timestamp', 'desc'),
+      limit(1)
+    );
+    const lastMessageSnap = await getDocs(lastMessageQuery);
+
+    if (!lastMessageSnap.empty) {
+      messageIdToMark = lastMessageSnap.docs[0].id;
+    }
+  }
+
+  if (messageIdToMark) {
+    // Update the participant's last read message and reset unread count
+    const updatedParticipants = [...chat.participants];
+    updatedParticipants[participantIndex] = {
+      ...updatedParticipants[participantIndex],
+      lastReadMessageId: messageIdToMark,
+      lastReadTimestamp: new Date(),
+      unreadCount: 0, // Reset unread count when marking as read
+    };
+
+    await setDoc(
+      chatRef,
+      {
+        participants: updatedParticipants,
+      },
+      { merge: true }
+    );
+  }
+};
+
+/**
+ * Get read receipt information for a message (respects privacy settings)
+ */
+export const getMessageReadReceipts = async (
+  chatId: string,
+  messageId: string,
+  requestingUserId: string
+): Promise<{ userId: string; readAt: Date; displayName: string }[]> => {
+  if (!chatId || !messageId || !requestingUserId) {
+    throw new Error('Chat ID, message ID, and requesting user ID are required');
+  }
+
+  // Get the message
+  const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+  const messageSnap = await getDoc(messageRef);
+
+  if (!messageSnap.exists()) {
+    return [];
+  }
+
+  const message = messageSnap.data() as Message;
+
+  // Only show read receipts if the requesting user is the sender
+  if (message.senderId !== requestingUserId) {
+    return [];
+  }
+
+  const readBy = message.readBy || [];
+  if (readBy.length === 0) {
+    return [];
+  }
+
+  // Get user privacy settings and display names
+  const userIds = readBy.map((r) => r.userId);
+  const userDocs = await Promise.all(
+    userIds.map(async (userId) => {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      return { userId, data: userSnap.exists() ? userSnap.data() : null };
+    })
+  );
+
+  const result: { userId: string; readAt: Date; displayName: string }[] = [];
+
+  for (const readInfo of readBy) {
+    const userData = userDocs.find((u) => u.userId === readInfo.userId)?.data;
+
+    // Check if user allows showing read receipts
+    if (userData?.privacy?.showReadReceipts !== false) {
+      result.push({
+        userId: readInfo.userId,
+        readAt: readInfo.readAt,
+        displayName: userData?.displayName || 'Unknown User',
+      });
+    }
+  }
+
+  return result;
 };
 
 /**
@@ -477,6 +755,7 @@ export const subscribeToMessages = (
           id: doc.id,
           ...data,
           timestamp: convertTimestamp(data.timestamp as Date | Timestamp),
+          readBy: data.readBy || [],
         };
       }) as Message[];
 

@@ -40,7 +40,8 @@ const ChatItem = React.memo(
     onChatSelect: (chatId: string) => void;
   }) => {
     const avatarProps = getChatAvatarProps(chat, userColors);
-    const hasUnread = chat.unreadCount > 0;
+    const hasUnread =
+      typeof chat.unreadCount === 'number' ? chat.unreadCount > 0 : true; // String values like "25+" always indicate unread messages
 
     const handleClick = useCallback(() => {
       onChatSelect(chat.chatId);
@@ -62,7 +63,15 @@ const ChatItem = React.memo(
           badgeContent={chat.unreadCount}
           color='primary'
           invisible={!hasUnread}
-          sx={{ mr: 2 }}
+          sx={{
+            mr: 2,
+            '& .MuiBadge-badge': {
+              fontSize:
+                typeof chat.unreadCount === 'string' ? '0.7rem' : '0.75rem',
+              minWidth: typeof chat.unreadCount === 'string' ? '24px' : '20px',
+              height: typeof chat.unreadCount === 'string' ? '24px' : '20px',
+            },
+          }}
         >
           <Avatar sx={avatarProps.sx}>{avatarProps.children}</Avatar>
         </Badge>

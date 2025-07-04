@@ -47,6 +47,8 @@ export interface CurrentUser extends BaseUser {
     showStatus: boolean;
     showLastSeen: boolean;
     showActivity: boolean;
+    showReadReceipts: boolean; // Whether to show read receipts to others
+    allowReadReceipts: boolean; // Whether to receive read receipts from others
   };
   // Basic notification preferences
   notifications: {
@@ -93,6 +95,10 @@ export interface Message {
     url: string;
     name: string;
   }[];
+  readBy?: {
+    userId: string;
+    readAt: Date;
+  }[]; // Track who has read this message and when
 }
 
 /**
@@ -106,9 +112,12 @@ export interface Chat {
     userId: string;
     role: 'admin' | 'member';
     joinedAt: Date;
+    lastReadMessageId?: string; // ID of the last message this participant read
+    lastReadTimestamp?: Date; // When they last read messages
+    unreadCount?: number | '25+' | '50+' | '75+' | '100+'; // Tiered unread count
   }[];
   createdAt: Date;
-  unreadCount: number;
+  totalMessageCount?: number; // Total messages in chat (for optimization)
 }
 
 /**
@@ -180,6 +189,6 @@ export interface ChatSummary {
   name?: string;
   otherParticipants: BaseUser[]; // Other users in the chat (excluding current user)
   lastMessage?: Message;
-  unreadCount: number;
+  unreadCount: number | '25+' | '50+' | '75+' | '100+'; // Tiered unread count
   updatedAt: Date;
 }
