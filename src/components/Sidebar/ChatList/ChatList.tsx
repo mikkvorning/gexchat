@@ -16,8 +16,10 @@ import {
   getChatAvatarProps,
   formatLastMessage,
   formatTimestamp,
-} from '../utils/chatListUtils';
+  markChatAsRead,
+} from './chatListUtils';
 import { ChatSummary } from '../../../types/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Loading state component
 const LoadingState = ({ message }: { message: string }) => (
@@ -122,6 +124,7 @@ ChatItem.displayName = 'ChatItem';
 const ChatList: React.FC = () => {
   const { user } = useAuth();
   const { setSelectedChat } = useAppContext();
+  const queryClient = useQueryClient();
 
   // Memoize user ID to prevent unnecessary hook re-renders
   const currentUserId = useMemo(() => user?.uid, [user?.uid]);
@@ -131,10 +134,17 @@ const ChatList: React.FC = () => {
 
   // Memoize the chat selection handler
   const handleChatSelect = useCallback(
-    (chatId: string) => {
+    async (chatId: string) => {
       setSelectedChat(chatId);
+
+      // Mark messages as read when selecting a chat
+      if (currentUserId) {
+        await markChatAsRead(queryClient, chatId, currentUserId, (error) =>
+          console.error('Failed to mark messages as read:', error)
+        );
+      }
     },
-    [setSelectedChat]
+    [setSelectedChat, currentUserId, queryClient]
   );
 
   if (isLoading) {

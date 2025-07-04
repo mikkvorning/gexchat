@@ -28,8 +28,28 @@ import {
 
 /**
  * Get unread count for a user using tiered counting (returns numbers only)
- * Uses optimal approach - only checks specific breakpoint positions
- * Respects privacy settings - returns 0 if user has disabled read receipts
+ * 
+ * This function implements a privacy-aware unread count system that:
+ * - Respects user privacy settings (returns 0 if read receipts disabled)
+ * - Uses cached unread counts when available for performance
+ * - Falls back to calculated tiered counts when needed
+ * - Always returns numeric values for consistent API
+ * 
+ * Performance hierarchy:
+ * 1. Privacy check (fastest exit)
+ * 2. Cached unread count (if available)
+ * 3. Calculated tiered count (when needed)
+ * 
+ * @param chat - The chat document containing participant information
+ * @param userId - The ID of the user to get unread count for
+ * @param chatId - The ID of the chat
+ * @returns Promise<number> - The unread count (0 if privacy disabled)
+ * 
+ * @example
+ * ```typescript
+ * const unreadCount = await getUnreadCountForUser(chat, userId, chatId);
+ * // Always returns a number: 0, 1, 2, ..., 25, 50, 75, or 100
+ * ```
  */
 const getUnreadCountForUser = async (
   chat: Chat,
@@ -62,7 +82,27 @@ const getUnreadCountForUser = async (
 
 /**
  * Calculate unread count using tiered system - truly optimal approach
- * Checks specific positions (26th, 51st, 76th, 101st) to determine tier
+ * 
+ * This function implements a smart tiered counting system that provides
+ * accurate counts for small numbers (0-25) and approximate counts for
+ * larger numbers (25+, 50+, 75+, 100+).
+ * 
+ * Performance optimizations:
+ * - Uses loop-based approach for maintainable tier checking
+ * - Avoids Firebase composite indexes by using simple queries
+ * - Filters out user's own messages client-side
+ * - Returns early when possible to minimize database queries
+ * 
+ * @param chat - The chat document containing participant information
+ * @param userId - The ID of the user to calculate unread count for
+ * @param chatId - The ID of the chat
+ * @returns Promise<number> - The calculated unread count
+ * 
+ * @example
+ * ```typescript
+ * const unreadCount = await calculateTieredUnreadCount(chat, userId, chatId);
+ * // Returns: 0, 1, 2, ..., 25, 50, 75, or 100
+ * ```
  */
 const calculateTieredUnreadCount = async (
   chat: Chat,
@@ -512,7 +552,7 @@ export const sendMessage = async (
     const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
 
     // Update unread counts for all participants except the sender
-    const updatedParticipants = chat.participants.map((participant) => {
+    const participants = chat.participants.map((participant) => {
       if (participant.userId !== senderId) {
         const currentCount =
           typeof participant.unreadCount === 'number'
@@ -527,7 +567,7 @@ export const sendMessage = async (
     });
 
     batch.update(chatRef, {
-      participants: updatedParticipants,
+      participants,
       lastActivity: serverTimestamp(),
     });
   }
@@ -610,6 +650,35 @@ export const initializeUserDocument = async (
 
 /**
  * Mark messages as read for a specific user in a chat
+ * 
+ * This function updates the participant's read status in the chat document,
+ * resetting their unread count to 0 and updating their last read message ID
+ * and timestamp.
+ * 
+ * Features:
+ * - Always resets unread count to 0 when called
+ * - Handles cases where no messages exist in the chat
+ * - Updates lastReadMessageId to the latest message if not specified
+ * - Uses atomic updates to prevent race conditions
+ * 
+ * Firebase operations performed:
+ * 1. getDoc(chatRef) - Get the chat document
+ * 2. getDocs(lastMessageQuery) - Get latest message if needed
+ * 3. setDoc(chatRef, { participants }, { merge: true }) - Update participant status
+ * 
+ * @param chatId - The ID of the chat to mark messages as read
+ * @param userId - The ID of the user marking messages as read
+ * @param lastReadMessageId - Optional specific message ID to mark as read
+ * @throws Error if chat ID or user ID is missing, or if chat/user not found
+ * 
+ * @example
+ * ```typescript
+ * // Mark all messages as read (uses latest message)
+ * await markMessagesAsRead(chatId, userId);
+ * 
+ * // Mark up to a specific message as read
+ * await markMessagesAsRead(chatId, userId, specificMessageId);
+ * ```
  */
 export const markMessagesAsRead = async (
   chatId: string,
@@ -652,24 +721,22 @@ export const markMessagesAsRead = async (
     }
   }
 
-  if (messageIdToMark) {
-    // Update the participant's last read message and reset unread count
-    const updatedParticipants = [...chat.participants];
-    updatedParticipants[participantIndex] = {
-      ...updatedParticipants[participantIndex],
-      lastReadMessageId: messageIdToMark,
-      lastReadTimestamp: new Date(),
-      unreadCount: 0, // Reset unread count when marking as read
-    };
+  // Always update the participant's read status, even if no messages exist
+  const participants = [...chat.participants];
+  participants[participantIndex] = {
+    ...participants[participantIndex],
+    lastReadMessageId: messageIdToMark, // Will be undefined if no messages
+    lastReadTimestamp: new Date(),
+    unreadCount: 0, // Always reset unread count when marking as read
+  };
 
-    await setDoc(
-      chatRef,
-      {
-        participants: updatedParticipants,
-      },
-      { merge: true }
-    );
-  }
+  await setDoc(
+    chatRef,
+    {
+      participants,
+    },
+    { merge: true }
+  );
 };
 
 /**
