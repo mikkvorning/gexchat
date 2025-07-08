@@ -15,7 +15,7 @@ const Chat = () => {
   const { selectedChat } = useAppContext();
 
   // Custom hooks for chat functionality
-  const { chat, messages, isLoading, error } = useChat(selectedChat);
+  const { chat, messages, isLoading, error } = useChat(selectedChat, user?.uid);
   const { messagesEndRef } = useChatEffects({
     selectedChat,
     messages,
@@ -86,6 +86,12 @@ const Chat = () => {
   // Get other participant for display name (for direct chats)
   const displayName = getChatDisplayName(chat, user?.uid);
 
+  // Get current user's unread messages array
+  const currentUserParticipant = chat.participants.find(
+    (p) => p.userId === user?.uid
+  );
+  const unreadMessages = currentUserParticipant?.unreadMessages || [];
+
   return (
     <Box
       sx={{
@@ -103,6 +109,7 @@ const Chat = () => {
         messages={messages}
         currentUserId={user?.uid}
         messagesEndRef={messagesEndRef}
+        unreadMessages={unreadMessages}
       />
 
       {/* Error ribbon */}

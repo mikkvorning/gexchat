@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { createChat } from '../../../lib/chatService';
 
 /**
@@ -8,8 +8,6 @@ export const useCreateChat = (
   currentUserId: string | undefined,
   onSuccess?: (chatId: string) => void
 ) => {
-  const queryClient = useQueryClient();
-
   const createChatMutation = useMutation({
     mutationFn: (participantIds: string[]) =>
       createChat(
@@ -20,8 +18,6 @@ export const useCreateChat = (
         currentUserId!
       ),
     onSuccess: (response) => {
-      // Invalidate to trigger refetch, real-time listeners will handle the rest
-      queryClient.invalidateQueries({ queryKey: ['userChats'] });
       onSuccess?.(response.chatId);
     },
     onError: (error) => {

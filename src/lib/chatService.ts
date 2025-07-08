@@ -7,6 +7,7 @@ import {
   query,
   where,
   arrayUnion,
+  updateDoc,
   serverTimestamp,
   writeBatch,
   orderBy,
@@ -25,166 +26,6 @@ import {
   CurrentUser,
   Message,
 } from '@/types/types';
-
-/**
- * Get unread count for a user using tiered counting (returns numbers only)
- * 
- * This function implements a privacy-aware unread count system that:
- * - Respects user privacy settings (returns 0 if read receipts disabled)
- * - Uses cached unread counts when available for performance
- * - Falls back to calculated tiered counts when needed
- * - Always returns numeric values for consistent API
- * 
- * Performance hierarchy:
- * 1. Privacy check (fastest exit)
- * 2. Cached unread count (if available)
- * 3. Calculated tiered count (when needed)
- * 
- * @param chat - The chat document containing participant information
- * @param userId - The ID of the user to get unread count for
- * @param chatId - The ID of the chat
- * @returns Promise<number> - The unread count (0 if privacy disabled)
- * 
- * @example
- * ```typescript
- * const unreadCount = await getUnreadCountForUser(chat, userId, chatId);
- * // Always returns a number: 0, 1, 2, ..., 25, 50, 75, or 100
- * ```
- */
-const getUnreadCountForUser = async (
-  chat: Chat,
-  userId: string,
-  chatId: string
-): Promise<number> => {
-  const participant = chat.participants.find((p) => p.userId === userId);
-  if (!participant) return 0;
-
-  // Check user's privacy settings first
-  const userRef = doc(db, 'users', userId);
-  const userSnap = await getDoc(userRef);
-
-  if (userSnap.exists()) {
-    const userData = userSnap.data();
-    // If user has disabled showing read receipts, don't calculate unread counts
-    if (userData?.privacy?.showReadReceipts === false) {
-      return 0;
-    }
-  }
-
-  // If we have a cached unread count, use it (most efficient)
-  if (typeof participant.unreadCount === 'number') {
-    return participant.unreadCount;
-  }
-
-  // Calculate tiered unread count
-  return await calculateTieredUnreadCount(chat, userId, chatId);
-};
-
-/**
- * Calculate unread count using tiered system - truly optimal approach
- * 
- * This function implements a smart tiered counting system that provides
- * accurate counts for small numbers (0-25) and approximate counts for
- * larger numbers (25+, 50+, 75+, 100+).
- * 
- * Performance optimizations:
- * - Uses loop-based approach for maintainable tier checking
- * - Avoids Firebase composite indexes by using simple queries
- * - Filters out user's own messages client-side
- * - Returns early when possible to minimize database queries
- * 
- * @param chat - The chat document containing participant information
- * @param userId - The ID of the user to calculate unread count for
- * @param chatId - The ID of the chat
- * @returns Promise<number> - The calculated unread count
- * 
- * @example
- * ```typescript
- * const unreadCount = await calculateTieredUnreadCount(chat, userId, chatId);
- * // Returns: 0, 1, 2, ..., 25, 50, 75, or 100
- * ```
- */
-const calculateTieredUnreadCount = async (
-  chat: Chat,
-  userId: string,
-  chatId: string
-): Promise<number> => {
-  try {
-    const participant = chat.participants.find((p) => p.userId === userId);
-    if (!participant) return 0;
-
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
-
-    // Build base query for unread messages - avoid composite index
-    let baseQuery = query(messagesRef, orderBy('timestamp', 'desc'));
-
-    if (participant.lastReadMessageId) {
-      // Get the last read message to find its timestamp
-      const lastReadMessageRef = doc(
-        messagesRef,
-        participant.lastReadMessageId
-      );
-      const lastReadMessageSnap = await getDoc(lastReadMessageRef);
-
-      if (lastReadMessageSnap.exists()) {
-        const lastReadTimestamp = lastReadMessageSnap.data().timestamp;
-        baseQuery = query(
-          messagesRef,
-          where('timestamp', '>', lastReadTimestamp),
-          orderBy('timestamp', 'desc')
-        );
-      }
-    }
-
-    const increment = 25; // Messages per tier
-    const numberOfIncrements = 4; // Total tiers to check
-
-    // First, check if we have 0-25 messages (exact count)
-    const firstCheckQuery = query(baseQuery, limit(increment + 1));
-    const firstCheckSnap = await getDocs(firstCheckQuery);
-
-    // Filter out user's own messages
-    const filteredFirstCheck = firstCheckSnap.docs.filter(
-      (doc) => doc.data().senderId !== userId
-    );
-
-    if (filteredFirstCheck.length <= increment) {
-      // 25 or fewer unread messages, return exact count
-      return filteredFirstCheck.length;
-    }
-
-    // We have 26+ messages, check each tier breakpoint using loop
-    for (let i = 1; i < numberOfIncrements; i++) {
-      const checkPosition = (i + 1) * increment + 1; // 51, 76, 101
-      const checkQuery = query(baseQuery, limit(checkPosition));
-      const checkSnap = await getDocs(checkQuery);
-
-      // Filter out user's own messages
-      const filteredMessages = checkSnap.docs.filter(
-        (doc) => doc.data().senderId !== userId
-      );
-
-      // If we have fewer messages than this position, return previous tier base count
-      if (filteredMessages.length < checkPosition) {
-        return i * increment; // Returns 25, 50, or 75 (base count for tier)
-      }
-    }
-
-    // If we reach here, we have 100+ unread messages
-    return numberOfIncrements * increment; // Returns 100
-  } catch (error) {
-    console.error('Error in calculateTieredUnreadCount:', error);
-    return 0; // Return 0 on error to prevent chat list from breaking
-  }
-};
-
-/**
- * Helper function to increment unread count (numbers only)
- */
-const incrementUnreadCount = (currentCount: number | undefined): number => {
-  if (currentCount === undefined || currentCount === 0) return 1;
-  return currentCount + 1;
-};
 
 /**
  * Helper function to convert Firestore Timestamp to Date
@@ -236,9 +77,7 @@ export const createChat = async (
         | 'admin'
         | 'member',
       joinedAt: new Date(),
-      lastReadMessageId: undefined,
-      lastReadTimestamp: undefined,
-      unreadCount: 0, // Initialize with 0 unread messages
+      unreadMessages: [], // Initialize with empty unread messages array
     })),
     createdAt: new Date(),
   };
@@ -448,8 +287,9 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         };
       }
 
-      // Use cached unread count if available, otherwise calculate efficiently
-      const unreadCount = await getUnreadCountForUser(chat, userId, chatId);
+      // Use simple array-based unread count
+      const participant = chat.participants.find((p) => p.userId === userId);
+      const unreadCount = participant?.unreadMessages?.length || 0;
 
       return {
         chatId: chat.id,
@@ -551,16 +391,13 @@ export const sendMessage = async (
   if (chatSnap.exists()) {
     const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
 
-    // Update unread counts for all participants except the sender
+    // Add message ID to unread arrays for all participants except the sender
     const participants = chat.participants.map((participant) => {
       if (participant.userId !== senderId) {
-        const currentCount =
-          typeof participant.unreadCount === 'number'
-            ? participant.unreadCount
-            : 0;
+        const currentUnread = participant.unreadMessages || [];
         return {
           ...participant,
-          unreadCount: incrementUnreadCount(currentCount),
+          unreadMessages: [...currentUnread, newMessageRef.id],
         };
       }
       return participant;
@@ -649,41 +486,22 @@ export const initializeUserDocument = async (
 };
 
 /**
- * Mark messages as read for a specific user in a chat
- * 
- * This function updates the participant's read status in the chat document,
- * resetting their unread count to 0 and updating their last read message ID
- * and timestamp.
- * 
- * Features:
- * - Always resets unread count to 0 when called
- * - Handles cases where no messages exist in the chat
- * - Updates lastReadMessageId to the latest message if not specified
- * - Uses atomic updates to prevent race conditions
- * 
+ * Mark all messages as read for a specific user in a chat
+ *
+ * This function clears all unread messages for the user in the chat and
+ * updates their last read timestamp. Optimized for simplicity and performance.
+ *
  * Firebase operations performed:
- * 1. getDoc(chatRef) - Get the chat document
- * 2. getDocs(lastMessageQuery) - Get latest message if needed
- * 3. setDoc(chatRef, { participants }, { merge: true }) - Update participant status
- * 
+ * 1. getDoc - Get chat to find participant index (minimal read)
+ * 2. updateDoc - Update only the specific participant's unread array
+ *
  * @param chatId - The ID of the chat to mark messages as read
  * @param userId - The ID of the user marking messages as read
- * @param lastReadMessageId - Optional specific message ID to mark as read
- * @throws Error if chat ID or user ID is missing, or if chat/user not found
- * 
- * @example
- * ```typescript
- * // Mark all messages as read (uses latest message)
- * await markMessagesAsRead(chatId, userId);
- * 
- * // Mark up to a specific message as read
- * await markMessagesAsRead(chatId, userId, specificMessageId);
- * ```
+ * @throws Error if chat ID or user ID is missing, or if user not found in chat
  */
 export const markMessagesAsRead = async (
   chatId: string,
-  userId: string,
-  lastReadMessageId?: string
+  userId: string
 ): Promise<void> => {
   if (!chatId || !userId) {
     throw new Error('Chat ID and user ID are required');
@@ -705,116 +523,65 @@ export const markMessagesAsRead = async (
     throw new Error('User is not a participant in this chat');
   }
 
-  // If no specific message ID provided, get the latest message
-  let messageIdToMark = lastReadMessageId;
-  if (!messageIdToMark) {
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const lastMessageQuery = query(
-      messagesRef,
-      orderBy('timestamp', 'desc'),
-      limit(1)
-    );
-    const lastMessageSnap = await getDocs(lastMessageQuery);
-
-    if (!lastMessageSnap.empty) {
-      messageIdToMark = lastMessageSnap.docs[0].id;
-    }
-  }
-
-  // Always update the participant's read status, even if no messages exist
+  // Update only the specific participant's unread messages and timestamp
   const participants = [...chat.participants];
   participants[participantIndex] = {
     ...participants[participantIndex],
-    lastReadMessageId: messageIdToMark, // Will be undefined if no messages
     lastReadTimestamp: new Date(),
-    unreadCount: 0, // Always reset unread count when marking as read
+    unreadMessages: [], // Clear all unread messages
   };
 
-  await setDoc(
-    chatRef,
-    {
-      participants,
-    },
-    { merge: true }
-  );
+  await updateDoc(chatRef, { participants });
 };
 
 /**
  * Get read receipt information for a message (respects privacy settings)
  */
-export const getMessageReadReceipts = async (
-  chatId: string,
-  messageId: string,
-  requestingUserId: string
-): Promise<{ userId: string; readAt: Date; displayName: string }[]> => {
-  if (!chatId || !messageId || !requestingUserId) {
-    throw new Error('Chat ID, message ID, and requesting user ID are required');
-  }
-
-  // Get the message
-  const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
-  const messageSnap = await getDoc(messageRef);
-
-  if (!messageSnap.exists()) {
-    return [];
-  }
-
-  const message = messageSnap.data() as Message;
-
-  // Only show read receipts if the requesting user is the sender
-  if (message.senderId !== requestingUserId) {
-    return [];
-  }
-
-  const readBy = message.readBy || [];
-  if (readBy.length === 0) {
-    return [];
-  }
-
-  // Get user privacy settings and display names
-  const userIds = readBy.map((r) => r.userId);
-  const userDocs = await Promise.all(
-    userIds.map(async (userId) => {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      return { userId, data: userSnap.exists() ? userSnap.data() : null };
-    })
-  );
-
-  const result: { userId: string; readAt: Date; displayName: string }[] = [];
-
-  for (const readInfo of readBy) {
-    const userData = userDocs.find((u) => u.userId === readInfo.userId)?.data;
-
-    // Check if user allows showing read receipts
-    if (userData?.privacy?.showReadReceipts !== false) {
-      result.push({
-        userId: readInfo.userId,
-        readAt: readInfo.readAt,
-        displayName: userData?.displayName || 'Unknown User',
-      });
-    }
-  }
-
-  return result;
-};
 
 /**
- * Subscribe to real-time messages for a specific chat
+ * Subscribe to real-time chat data and messages for a chat view/page
+ *
+ * This function provides both chat metadata and messages in a single subscription,
+ * optimized for individual chat pages where users view and send messages.
+ *
+ * @param chatId - The ID of the chat to subscribe to
+ * @param onChatChange - Callback for chat metadata updates (participants, settings, etc.)
+ * @param onMessagesChange - Callback for message updates (new messages, edits, etc.)
+ * @returns Unsubscribe function that cleans up both listeners
  */
-export const subscribeToMessages = (
+export const subscribeToChatView = (
   chatId: string,
-  callback: (messages: Message[]) => void
+  onChatChange: (chat: Chat | null) => void,
+  onMessagesChange: (messages: Message[]) => void
 ): Unsubscribe => {
   if (!chatId) {
     throw new Error('Chat ID is required');
   }
 
-  const messagesRef = collection(db, 'chats', chatId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  // Subscribe to chat metadata
+  const chatRef = doc(db, 'chats', chatId);
+  const chatUnsubscribe = onSnapshot(
+    chatRef,
+    (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        const chat = { id: doc.id, ...data } as Chat;
+        chat.createdAt = convertTimestamp(data.createdAt as Date | Timestamp);
+        onChatChange(chat);
+      } else {
+        onChatChange(null);
+      }
+    },
+    (error) => {
+      console.error('Error in chat subscription:', error);
+    }
+  );
 
-  return onSnapshot(
-    q,
+  // Subscribe to messages
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  const messagesQuery = query(messagesRef, orderBy('timestamp', 'asc'));
+  const messagesUnsubscribe = onSnapshot(
+    messagesQuery,
     (snapshot) => {
       const messages: Message[] = snapshot.docs.map((doc) => {
         const data = doc.data();
@@ -826,41 +593,211 @@ export const subscribeToMessages = (
         };
       }) as Message[];
 
-      callback(messages);
+      onMessagesChange(messages);
     },
     (error) => {
       console.error('Error in messages subscription:', error);
     }
   );
+
+  // Return cleanup function that unsubscribes from both
+  return () => {
+    chatUnsubscribe();
+    messagesUnsubscribe();
+  };
 };
 
 /**
- * Subscribe to real-time chat data
+ * Legacy function - use subscribeToChatView instead
+ * @deprecated Use subscribeToChatView for better performance and simpler component logic
+ */
+export const subscribeToFullChat = (
+  chatId: string,
+  onChatChange: (chat: Chat | null) => void,
+  onMessagesChange: (messages: Message[]) => void
+): Unsubscribe => {
+  return subscribeToChatView(chatId, onChatChange, onMessagesChange);
+};
+
+/**
+ * Legacy function - use subscribeToChatView instead
+ * @deprecated Use subscribeToChatView for better performance and simpler component logic
+ */
+export const subscribeToMessages = (
+  chatId: string,
+  callback: (messages: Message[]) => void
+): Unsubscribe => {
+  return subscribeToChatView(chatId, () => {}, callback);
+};
+
+/**
+ * Legacy function - use subscribeToChatView instead
+ * @deprecated Use subscribeToChatView for better performance and simpler component logic
  */
 export const subscribeToChat = (
   chatId: string,
   callback: (chat: Chat | null) => void
 ): Unsubscribe => {
-  if (!chatId) {
-    throw new Error('Chat ID is required');
+  return subscribeToChatView(chatId, callback, () => {});
+};
+
+/**
+ * Simplified chat list subscription - minimal data for chat list display
+ *
+ * Only provides: unread count, last message, and chat/participant names
+ *
+ * @param userId - The ID of the user whose chat list to subscribe to
+ * @param callback - Callback function that receives updated chat summaries
+ * @returns Unsubscribe function that cleans up all listeners
+ */
+export const subscribeToChatList = (
+  userId: string,
+  callback: (chats: ChatSummary[]) => void
+): Unsubscribe => {
+  if (!userId) {
+    throw new Error('User ID is required');
   }
 
-  const chatRef = doc(db, 'chats', chatId);
+  let chatUnsubscribes: Unsubscribe[] = [];
+  const userRef = doc(db, 'users', userId);
 
-  return onSnapshot(
-    chatRef,
-    (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        const chat = { id: doc.id, ...data } as Chat;
-        chat.createdAt = convertTimestamp(data.createdAt as Date | Timestamp);
-        callback(chat);
-      } else {
-        callback(null);
-      }
-    },
-    (error) => {
-      console.error('Error in chat subscription:', error);
+  const userUnsubscribe = onSnapshot(userRef, async (userSnap) => {
+    // Clean up existing subscriptions
+    chatUnsubscribes.forEach((unsub) => unsub());
+    chatUnsubscribes = [];
+
+    if (!userSnap.exists()) {
+      callback([]);
+      return;
     }
-  );
+
+    const chatIds: string[] = userSnap.data().chats || [];
+    if (chatIds.length === 0) {
+      callback([]);
+      return;
+    }
+
+    const buildSummaries = async () => {
+      try {
+        // Get all chats and their last messages in parallel
+        const results = await Promise.all(
+          chatIds.map(async (chatId) => {
+            const [chatSnap, lastMessageSnap] = await Promise.all([
+              getDoc(doc(db, 'chats', chatId)),
+              getDocs(
+                query(
+                  collection(db, 'chats', chatId, 'messages'),
+                  orderBy('timestamp', 'desc'),
+                  limit(1)
+                )
+              ),
+            ]);
+
+            if (!chatSnap.exists()) return null;
+
+            const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
+            const participant = chat.participants.find(
+              (p) => p.userId === userId
+            );
+            const unreadCount = participant?.unreadMessages?.length || 0;
+
+            // Get last message
+            let lastMessage: Message | undefined;
+            if (!lastMessageSnap.empty) {
+              const messageData = lastMessageSnap.docs[0].data();
+              lastMessage = {
+                id: lastMessageSnap.docs[0].id,
+                chatId,
+                senderId: messageData.senderId,
+                content: messageData.content,
+                timestamp: convertTimestamp(
+                  messageData.timestamp as Date | Timestamp
+                ),
+                edited: messageData.edited || false,
+                readBy: messageData.readBy || [],
+              } as Message;
+            }
+
+            // Get other participant names (only if needed)
+            const otherParticipants: BaseUser[] = [];
+            if (chat.type === 'direct') {
+              const otherParticipant = chat.participants.find(
+                (p) => p.userId !== userId
+              );
+              if (otherParticipant) {
+                const userSnap = await getDoc(
+                  doc(db, 'users', otherParticipant.userId)
+                );
+                otherParticipants.push({
+                  id: otherParticipant.userId,
+                  displayName: userSnap.exists()
+                    ? userSnap.data().displayName || 'Unknown User'
+                    : 'Unknown User',
+                  username: '',
+                  status: 'offline',
+                });
+              }
+            }
+
+            return {
+              chatId: chat.id,
+              type: chat.type,
+              name: chat.name,
+              otherParticipants,
+              lastMessage,
+              unreadCount,
+              updatedAt:
+                lastMessage?.timestamp ||
+                convertTimestamp(chat.createdAt as Date | Timestamp),
+            } as ChatSummary;
+          })
+        );
+
+        // Filter out nulls and sort by last activity
+        const summaries = results
+          .filter((summary): summary is ChatSummary => summary !== null)
+          .sort(
+            (a, b) =>
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+
+        callback(summaries);
+      } catch (error) {
+        console.error('Error building chat summaries:', error);
+        callback([]);
+      }
+    };
+
+    // Subscribe to each chat for real-time updates
+    chatIds.forEach((chatId) => {
+      const chatUnsub = onSnapshot(doc(db, 'chats', chatId), buildSummaries);
+      const messageUnsub = onSnapshot(
+        query(
+          collection(db, 'chats', chatId, 'messages'),
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        ),
+        buildSummaries
+      );
+      chatUnsubscribes.push(chatUnsub, messageUnsub);
+    });
+
+    buildSummaries(); // Initial load
+  });
+
+  return () => {
+    userUnsubscribe();
+    chatUnsubscribes.forEach((unsub) => unsub());
+  };
+};
+
+/**
+ * Legacy function - use subscribeToChatList instead
+ * @deprecated Use subscribeToChatList for clearer naming and better documentation
+ */
+export const subscribeToUserChats = (
+  userId: string,
+  callback: (chats: ChatSummary[]) => void
+): Unsubscribe => {
+  return subscribeToChatList(userId, callback);
 };

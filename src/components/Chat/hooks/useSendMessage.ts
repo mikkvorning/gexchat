@@ -21,6 +21,16 @@ export const useSendMessage = ({
   const [failedMessage, setFailedMessage] = useState<string>('');
   const messageInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper function to focus input reliably
+  const focusInput = () => {
+    // Use double requestAnimationFrame to ensure DOM has fully updated
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messageInputRef.current?.focus();
+      });
+    });
+  };
+
   // Helper function for retry functionality
   // This function allows resending a failed message with its exact original content,
   // independent of what's currently in the input field. Used by the error ribbon
@@ -48,7 +58,7 @@ export const useSendMessage = ({
     }) => sendMessage(chatId, senderId, content),
     onSuccess: () => {
       // Message sent successfully, input was already cleared optimistically
-      messageInputRef.current?.focus();
+      focusInput();
     },
     onError: (error, variables) => {
       console.error('Failed to send message:', error);
@@ -60,7 +70,7 @@ export const useSendMessage = ({
       if (onError) {
         onError(variables.content, () => retrySendMessage(variables.content));
       }
-      messageInputRef.current?.focus();
+      focusInput();
     },
   });
 
@@ -87,7 +97,7 @@ export const useSendMessage = ({
     });
 
     // Keep focus on input after initiating send
-    messageInputRef.current?.focus();
+    focusInput();
   };
 
   // Handle Enter key press
@@ -117,7 +127,7 @@ export const useSendMessage = ({
       // Clear the error state since we're retrying
       setShowErrorSnackbar(false);
       setFailedMessage('');
-      messageInputRef.current?.focus();
+      focusInput();
     }
   };
 

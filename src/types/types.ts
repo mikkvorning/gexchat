@@ -114,7 +114,7 @@ export interface Chat {
     joinedAt: Date;
     lastReadMessageId?: string; // ID of the last message this participant read
     lastReadTimestamp?: Date; // When they last read messages
-    unreadCount?: number | '25+' | '50+' | '75+' | '100+'; // Tiered unread count
+    unreadMessages?: string[]; // Array of unread message IDs for this participant
   }[];
   createdAt: Date;
   totalMessageCount?: number; // Total messages in chat (for optimization)

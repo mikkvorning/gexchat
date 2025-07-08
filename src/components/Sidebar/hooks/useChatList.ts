@@ -1,25 +1,45 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getUserChats } from '../../../lib/chatService';
+import { useMemo, useState, useEffect } from 'react';
+import { subscribeToUserChats } from '../../../lib/chatService';
 import { generateAvatarColor } from '../../../utils/colors';
 import { ChatSummary } from '../../../types/types';
 
 /**
- * Custom hook for ChatList data using React Query cache (updated via active chat listeners)
+ * Custom hook for ChatList data using real-time Firestore subscriptions
  */
 export const useChatList = (userId: string | undefined) => {
-  // Rely on React Query cache - updated by active chat message listeners
-  const {
-    data: chats = [],
-    isLoading,
-    error,
-  } = useQuery<ChatSummary[]>({
-    queryKey: ['userChats', userId],
-    queryFn: () => getUserChats(userId ?? ''),
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000, // 5 minutes - allow some staleness since active chats update the cache
-    refetchOnWindowFocus: true, // Refetch when window gains focus to catch missed updates
-  });
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setChats([]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    // Subscribe to real-time chat updates
+    const unsubscribe = subscribeToUserChats(userId, (updatedChats) => {
+      console.log(
+        'Chat list updated:',
+        updatedChats.map((chat) => ({
+          id: chat.chatId,
+          unreadCount: chat.unreadCount,
+        }))
+      );
+      setChats(updatedChats);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount or userId change
+    return () => {
+      unsubscribe();
+    };
+  }, [userId]);
 
   // Generate stable color mappings for users
   const userColors = useMemo(() => {

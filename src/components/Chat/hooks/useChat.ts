@@ -3,14 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getChat,
   getChatMessages,
-  subscribeToChat,
-  subscribeToMessages,
+  subscribeToChatView,
+  markMessagesAsRead,
 } from '../../../lib/chatService';
 
 /**
  * Custom hook for real-time chat data and messages using React Query + Firestore listeners
  */
-export const useChat = (chatId: string | null) => {
+export const useChat = (chatId: string | null, userId: string | undefined) => {
   const queryClient = useQueryClient();
 
   // Initial fetch with React Query (fast first load from cache)
@@ -37,23 +37,30 @@ export const useChat = (chatId: string | null) => {
     staleTime: Infinity, // Never consider stale since we have real-time updates
   });
 
-  // Real-time updates that sync with React Query cache
+  // Real-time updates and mark messages as read
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !userId) return;
 
-    const chatUnsubscribe = subscribeToChat(chatId, (chatData) => {
-      queryClient.setQueryData(['chat', chatId], chatData);
+    // Mark all messages as read when entering the chat
+    markMessagesAsRead(chatId, userId).catch((error) => {
+      console.error('Failed to mark messages as read:', error);
     });
 
-    const messagesUnsubscribe = subscribeToMessages(chatId, (messagesData) => {
-      queryClient.setQueryData(['chatMessages', chatId], messagesData);
-    });
+    // Set up real-time subscription using the consolidated function
+    const unsubscribe = subscribeToChatView(
+      chatId,
+      (chatData) => {
+        queryClient.setQueryData(['chat', chatId], chatData);
+      },
+      (messagesData) => {
+        queryClient.setQueryData(['chatMessages', chatId], messagesData);
+      }
+    );
 
     return () => {
-      chatUnsubscribe?.();
-      messagesUnsubscribe?.();
+      unsubscribe?.();
     };
-  }, [chatId, queryClient]);
+  }, [chatId, userId, queryClient]);
 
   return {
     chat,
