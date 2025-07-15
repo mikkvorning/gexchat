@@ -2,27 +2,25 @@
 
 import { useAuth } from '@/components/AuthProvider';
 import { auth, db } from '@/lib/firebase';
-import type { CurrentUser } from '@/types/types';
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile,
-  sendEmailVerification,
-  User,
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { Formik, FormikHelpers } from 'formik';
-import { useRouter } from 'next/navigation';
-import { useRef, useState, useEffect } from 'react';
-import * as Yup from 'yup';
-import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
-import { FormikErrors, FormikTouched } from 'formik';
+  clearVerificationEmail,
+  getVerificationEmail,
+  saveVerificationEmail,
+} from '@/utils/storage';
 import { FormHelperText } from '@mui/material';
 import {
-  saveVerificationEmail,
-  getVerificationEmail,
-  clearVerificationEmail,
-} from '@/utils/storage';
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  updateProfile,
+  User,
+} from 'firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { Formik, FormikErrors, FormikHelpers, FormikTouched } from 'formik';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import * as Yup from 'yup';
+import { Box, Button, Paper, TextField, Typography } from '../muiImports';
 
 interface FormFieldConfig {
   name: keyof FormValues;
@@ -203,9 +201,14 @@ const Login = () => {
 
     setIsResending(true);
     try {
+      const actionCodeSettings = {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: true,
+      };
+
       // Try to use the stored unverified user first
       if (unverifiedUser && unverifiedUser.email === verificationEmail) {
-        await sendEmailVerification(unverifiedUser);
+        await sendEmailVerification(unverifiedUser, actionCodeSettings);
         setHasResentEmail(true);
         return;
       }
@@ -213,17 +216,19 @@ const Login = () => {
       // Fallback: try to get the current user from auth state
       const currentUser = auth.currentUser;
       if (currentUser && currentUser.email === verificationEmail) {
-        await sendEmailVerification(currentUser);
+        await sendEmailVerification(currentUser, actionCodeSettings);
         setHasResentEmail(true);
         return;
       }
 
-      // If no user available, we can't resend verification emails
-      console.error('No authenticated user found for resending verification');
-      // You could show an error message here
-    } catch (error: unknown) {
-      console.error('Failed to resend verification email:', error);
-      // You could show an error message here
+      throw new Error('Could not find user to resend verification');
+    } catch {
+      if (formikRef.current?.setErrors) {
+        formikRef.current.setErrors({
+          authError:
+            'Failed to resend verification email. Please try again later.',
+        });
+      }
     } finally {
       setIsResending(false);
     }
@@ -239,57 +244,66 @@ const Login = () => {
 
       let userCredential;
       if (isSignup) {
-        // Create the user account first
-        userCredential = await createUserWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password
-        );
+        try {
+          // Create the user account first
+          console.log('Creating user account...');
+          userCredential = await createUserWithEmailAndPassword(
+            auth,
+            values.email,
+            values.password
+          );
+          console.log('User account created successfully');
 
-        const nickname = values.nickname || values.email.split('@')[0];
+          const nickname = values.nickname || values.email.split('@')[0];
 
-        // Update Firebase Auth profile
-        await updateProfile(userCredential.user, {
-          displayName: nickname,
-        });
+          // Update Firebase Auth profile
+          console.log('Updating user profile...');
+          await updateProfile(userCredential.user, {
+            displayName: nickname,
+          });
+          console.log('Profile updated successfully');
 
-        // Send email verification
-        await sendEmailVerification(userCredential.user);
-        setEmailVerificationSent(true);
-        setVerificationEmail(values.email);
-        // Persist to sessionStorage with timestamp (expires after 15 minutes)
-        saveVerificationEmail(values.email);
+          // Send email verification
+          try {
+            await sendEmailVerification(userCredential.user, {
+              url: `${window.location.origin}/login`,
+              handleCodeInApp: true,
+            });
+          } catch {
+            setErrors({
+              authError:
+                'Account created, but there was a problem sending the verification email. Click "Resend" to try again.',
+            });
+          }
 
-        // Save user data to Firestore
-        const userDoc: CurrentUser = {
-          id: userCredential.user.uid,
-          email: values.email,
-          displayName: nickname,
-          username: nickname.toLowerCase(), // Store lowercase version for search
-          avatarUrl: '',
-          status: 'online',
-          createdAt: new Date(),
-          chats: [],
-          privacy: {
-            showStatus: true,
-            showLastSeen: true,
-            showActivity: true,
-          },
-          notifications: {
-            enabled: true,
-            sound: true,
-            muteUntil: null,
-          },
-          friends: {
-            list: [],
-            pending: [],
-          },
-          blocked: [],
-        };
-        await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+          setEmailVerificationSent(true);
+          setVerificationEmail(values.email);
+          saveVerificationEmail(values.email);
+          // Store the user for resending verification if needed
+          setUnverifiedUser(userCredential.user);
 
-        // Don't redirect yet - show verification message
-        return;
+          // Don't redirect yet - show verification message
+          return;
+        } catch (error: unknown) {
+          console.error('Signup Error:', error);
+          // If we failed during signup, make sure to show the specific error
+          if (error && typeof error === 'object' && 'code' in error) {
+            const firebaseError = error as { code: string };
+            setErrors({
+              authError: getFirebaseErrorMessage(firebaseError.code),
+            });
+          } else if (error instanceof Error) {
+            setErrors({
+              authError:
+                error.message || 'Failed to create account. Please try again.',
+            });
+          } else {
+            setErrors({
+              authError: 'Failed to create account. Please try again.',
+            });
+          }
+          return;
+        }
       } else {
         userCredential = await signInWithEmailAndPassword(
           auth,
@@ -310,20 +324,86 @@ const Login = () => {
           });
           return;
         }
+
+        // If email is verified, check if we need to create their Firestore document
+        try {
+          const userDocRef = doc(db, 'users', userCredential.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (!userDocSnap.exists()) {
+            // Create the user document on first verified sign in
+            const nickname =
+              sessionStorage.getItem('pendingNickname') ||
+              userCredential.user.displayName ||
+              values.email.split('@')[0];
+
+            const userDoc = {
+              id: userCredential.user.uid,
+              email: values.email,
+              displayName: nickname,
+              username: nickname.toLowerCase(),
+              avatarUrl: userCredential.user.photoURL || '',
+              status: 'online',
+              createdAt: serverTimestamp(),
+              chats: [],
+              privacy: {
+                showStatus: true,
+                showLastSeen: true,
+                showActivity: true,
+                showReadReceipts: true,
+                allowReadReceipts: true,
+              },
+              notifications: {
+                enabled: true,
+                sound: true,
+                muteUntil: null,
+              },
+              friends: {
+                list: [],
+                pending: [],
+              },
+              blocked: [],
+            };
+
+            // Attempt to create the user document
+            try {
+              await setDoc(userDocRef, userDoc);
+              console.log('Firestore user document created successfully');
+            } catch (writeError) {
+              console.error('Error writing user document:', writeError);
+              // Try one more time after a short delay
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              await setDoc(userDocRef, userDoc);
+            }
+
+            // Clear the stored nickname
+            sessionStorage.removeItem('pendingNickname');
+          }
+        } catch (firestoreError) {
+          console.error('Firestore Error:', firestoreError);
+          // Show a specific error message but allow login to proceed
+          setErrors({
+            authError:
+              'Warning: Some account features may be limited. Please try signing out and back in if you experience issues.',
+          });
+          // Wait a moment so the user can see the warning
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+
+        // Even if Firestore setup fails, proceed with auth
+        // Set the user in the auth context
+        setUser(userCredential.user);
+
+        // Clear any pending verification email from sessionStorage
+        clearVerificationEmail();
+        setUnverifiedUser(null);
+
+        // Set the session cookie properly with the user's ID
+        document.cookie = `session=${userCredential.user.uid}; path=/;`;
+
+        // Redirect to the home page using replace to prevent back navigation
+        router.replace('/');
       }
-
-      // Set the user in the auth context
-      setUser(userCredential.user);
-
-      // Clear any pending verification email from sessionStorage
-      clearVerificationEmail();
-      setUnverifiedUser(null);
-
-      // Set the session cookie properly with the user's ID
-      document.cookie = `session=${userCredential.user.uid}; path=/;`;
-
-      // Redirect to the home page using replace to prevent back navigation
-      router.replace('/');
     } catch (error: unknown) {
       let errorMessage = 'Something went wrong. Please try again.';
 
@@ -490,16 +570,24 @@ const Login = () => {
               {/* Show appropriate link based on context */}
               {!emailVerificationSent && (
                 <Box mt={4} textAlign='center'>
-                  <Typography color='text.secondary'>
-                    {errors.authError?.includes('verify your email')
-                      ? hasResentEmail
-                        ? "Still didn't receive it?"
-                        : "Didn't receive a verification email?"
-                      : isSignup
-                      ? 'Already have an account?'
-                      : "Don't have an account?"}
-                    <Link
-                      component='button'
+                  <Box
+                    display='flex'
+                    alignItems='center'
+                    justifyContent='center'
+                    gap={1}
+                  >
+                    <Typography color='text.secondary'>
+                      {errors.authError?.includes('verify your email')
+                        ? hasResentEmail
+                          ? "Still didn't receive it?"
+                          : "Didn't receive a verification email?"
+                        : isSignup
+                        ? 'Already have an account?'
+                        : "Don't have an account?"}
+                    </Typography>
+                    <Button
+                      variant='text'
+                      size='small'
                       onClick={
                         errors.authError?.includes('verify your email')
                           ? handleResendVerification
@@ -508,10 +596,11 @@ const Login = () => {
                       sx={{
                         color: 'primary.main',
                         textDecoration: 'underline',
-                        cursor: 'pointer',
-                        mx: 1,
-                        position: 'relative',
-                        top: -2,
+                        minWidth: 'auto',
+                        p: 0,
+                        '&:hover': {
+                          background: 'none',
+                        },
                       }}
                       disabled={isResending}
                     >
@@ -525,8 +614,8 @@ const Login = () => {
                         : isSignup
                         ? 'Sign in'
                         : 'Sign up'}
-                    </Link>
-                  </Typography>
+                    </Button>
+                  </Box>
                 </Box>
               )}
             </Box>

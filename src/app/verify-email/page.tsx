@@ -21,11 +21,19 @@ const VerifyEmailContent = () => {
 
       if (!actionCode) {
         setVerificationStatus('error');
-        setErrorMessage('Invalid verification link.');
+        setErrorMessage(
+          'Missing verification code. Please use the link from your verification email.'
+        );
         return;
       }
 
       try {
+        // First check if the user is already verified
+        if (auth.currentUser?.emailVerified) {
+          setVerificationStatus('success');
+          return;
+        }
+
         await applyActionCode(auth, actionCode);
         setVerificationStatus('success');
 
@@ -34,25 +42,40 @@ const VerifyEmailContent = () => {
           await auth.currentUser.reload();
         }
       } catch (error: unknown) {
+        console.error('Email verification error:', error);
         setVerificationStatus('error');
         if (error && typeof error === 'object' && 'code' in error) {
           const firebaseError = error as { code: string; message: string };
           switch (firebaseError.code) {
             case 'auth/expired-action-code':
               setErrorMessage(
-                'This verification link has expired. Please request a new one.'
+                'This verification link has expired. Please request a new one from the login page.'
               );
               break;
             case 'auth/invalid-action-code':
               setErrorMessage(
-                'This verification link is invalid or has already been used.'
+                'This verification link is invalid or has already been used. Please request a new one from the login page.'
+              );
+              break;
+            case 'auth/user-not-found':
+              setErrorMessage(
+                'Account not found. The account may have been deleted.'
+              );
+              break;
+            case 'auth/invalid-email':
+              setErrorMessage(
+                'Invalid email address. Please check your verification link.'
               );
               break;
             default:
-              setErrorMessage('Failed to verify email. Please try again.');
+              setErrorMessage(
+                'Something went wrong while verifying your email. Please try again or contact support if the problem continues.'
+              );
           }
         } else {
-          setErrorMessage('Failed to verify email. Please try again.');
+          setErrorMessage(
+            'Something went wrong while verifying your email. Please try again or contact support if the problem continues.'
+          );
         }
       }
     };

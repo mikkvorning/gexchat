@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Allow read if the user is signed in and email verified
+      allow read: if isSignedIn() && isEmailVerified();
+      
+      // Allow create/update only for the user's own document with proper validation
+      allow create: if isSignedIn() && 
+                     isEmailVerified() && 
+                     isOwner(userId) &&
+                     request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'username', 'createdAt']) &&
+                     request.resource.data.id == userId &&
+                     request.resource.data.email == request.auth.token.email;
+                     
+      // Allow updates for own document
+      allow update: if isSignedIn() && 
+                     isEmailVerified() && 
+                     isOwner(userId);
+    }
+    
+    // Chats collection
+    match /chats/{chatId} {
+      // Allow read/write if user is a participant and email verified
+      allow read, write: if isSignedIn() && 
+                           isEmailVerified() &&
+                           exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                           (
+                             get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) ||
+                             !exists(/databases/$(database)/documents/chats/$(chatId))
+                           );
+    }
+  }
+}

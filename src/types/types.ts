@@ -1,4 +1,14 @@
+import { FieldValue } from 'firebase/firestore';
+
 // No external types needed for now
+
+/**
+ * User presence information
+ */
+interface UserPresence {
+  lastSeen?: Date;
+  currentActivity?: string;
+}
 
 /**
  * Basic user info available to all users
@@ -14,10 +24,7 @@ export interface BaseUser {
 /**
  * Extended user info visible in chats
  */
-export interface ChatParticipantUser extends BaseUser {
-  lastSeen?: Date;
-  currentActivity?: string;
-}
+export interface ChatParticipantUser extends BaseUser, UserPresence {}
 
 /**
  * Extended user information visible to friends
@@ -25,8 +32,6 @@ export interface ChatParticipantUser extends BaseUser {
 export interface FriendUser extends ChatParticipantUser {
   nickname?: string;
   friendshipDate: Date;
-  lastSeen?: Date;
-  currentActivity?: string;
 }
 
 /**
@@ -34,7 +39,7 @@ export interface FriendUser extends ChatParticipantUser {
  */
 export interface CurrentUser extends BaseUser {
   email: string;
-  createdAt: Date;
+  createdAt: Date | FieldValue;
 
   // User's active chats
   chats: string[]; // Array of chat IDs the user participates in
