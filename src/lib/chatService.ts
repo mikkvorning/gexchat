@@ -1,30 +1,30 @@
 import {
+  BaseUser,
+  Chat,
+  ChatSummary,
+  CreateChatRequest,
+  CreateChatResponse,
+  CurrentUser,
+  Message,
+} from '@/types/types';
+import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  query,
-  where,
-  arrayUnion,
-  serverTimestamp,
-  writeBatch,
-  orderBy,
   limit,
-  Timestamp,
   onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  where,
+  writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import {
-  Chat,
-  CreateChatRequest,
-  CreateChatResponse,
-  ChatSummary,
-  BaseUser,
-  CurrentUser,
-  Message,
-} from '@/types/types';
 
 /**
  * Helper function to convert Firestore Timestamp to Date
@@ -63,34 +63,7 @@ export const createChat = async (
     }
   }
 
-  // Create new chat document
-  const chatRef = doc(collection(db, 'chats'));
-  const chatId = chatRef.id;
-  const chatData: Chat = {
-    id: chatId,
-    type: request.type,
-    ...(request.name && { name: request.name }),
-    participants: allParticipantIds.map((userId) => ({
-      userId,
-      role: (userId === currentUserId ? 'admin' : 'member') as
-        | 'admin'
-        | 'member',
-      joinedAt: new Date(),
-    })),
-    createdAt: new Date(),
-    unreadCount: 0,
-  };
-
-  // Use batch operations for better performance
-  const batch = writeBatch(db);
-
-  // Add chat document to batch
-  batch.set(chatRef, {
-    ...chatData,
-    createdAt: serverTimestamp(),
-  });
-
-  // Fetch all user documents at once to check blocking status
+  // Fetch all user documents at once for display info and blocking status
   const userDocs = await Promise.all(
     allParticipantIds.map(async (userId) => {
       const userRef = doc(db, 'users', userId);
@@ -103,6 +76,37 @@ export const createChat = async (
       };
     })
   );
+
+  // Create chat document with participant display info
+  const chatRef = doc(collection(db, 'chats'));
+  const chatId = chatRef.id;
+
+  // Filter valid participants and create participant list
+  const validParticipants = userDocs
+    .filter(({ exists, data }) => exists && data)
+    .map(({ userId, data }) => ({
+      userId,
+      displayName: data?.displayName || 'Unknown User',
+      unreadCount: 0,
+    }));
+
+  const chatData: Chat = {
+    id: chatId,
+    type: request.type,
+    ...(request.name && { name: request.name }),
+    participants: validParticipants,
+    createdAt: new Date(),
+    lastActivity: new Date(),
+  };
+
+  // Use batch operations for better performance
+  const batch = writeBatch(db);
+
+  // Add chat document to batch
+  batch.set(chatRef, {
+    ...chatData,
+    createdAt: serverTimestamp(),
+  });
 
   // Check for blocking relationships and update user chats in batch
   for (const user of userDocs) {
@@ -150,26 +154,40 @@ export const createChat = async (
 };
 
 /**
- * Find existing direct chat between two users
+ * Find existing direct chat between two users by matching participant IDs
  */
 const findExistingDirectChat = async (
   participantIds: string[]
 ): Promise<Chat | null> => {
   const chatsRef = collection(db, 'chats');
+  // Query for direct chats where first participant is present
   const q = query(
     chatsRef,
     where('type', '==', 'direct'),
-    where('participants', 'array-contains', { userId: participantIds[0] })
+    where('participants', 'array-contains', {
+      userId: participantIds[0],
+    })
   );
 
   const snapshot = await getDocs(q);
 
+  // Check each chat to find one with exactly these participants
   for (const doc of snapshot.docs) {
     const chat = { id: doc.id, ...doc.data() } as Chat;
-    const chatUserIds = chat.participants.map((p) => p.userId).sort();
-    const requestUserIds = participantIds.sort();
 
-    if (JSON.stringify(chatUserIds) === JSON.stringify(requestUserIds)) {
+    // Ensure this is a direct chat with exactly 2 participants
+    if (chat.type !== 'direct' || chat.participants.length !== 2) {
+      continue;
+    }
+
+    // Compare participant IDs only
+    const chatUserIds = chat.participants.map((p) => p.userId).sort();
+    const requestUserIds = [...participantIds].sort();
+
+    if (
+      chatUserIds.length === requestUserIds.length &&
+      chatUserIds.every((id, index) => id === requestUserIds[index])
+    ) {
       return chat;
     }
   }
@@ -291,7 +309,8 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
         name: chat.name,
         otherParticipants,
         lastMessage,
-        unreadCount: chat.unreadCount || 0,
+        unreadCount:
+          chat.participants.find((p) => p.userId === userId)?.unreadCount || 0,
         updatedAt:
           lastMessage?.timestamp ||
           convertTimestamp(chat.createdAt as Date | Timestamp),
@@ -357,10 +376,20 @@ export const sendMessage = async (
     throw new Error('Chat ID, sender ID, and content are required');
   }
 
-  // Create new message document
+  const batch = writeBatch(db);
+  const chatRef = doc(db, 'chats', chatId);
   const messagesRef = collection(db, 'chats', chatId, 'messages');
   const newMessageRef = doc(messagesRef);
 
+  // Get chat to update unread count for other participants
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) {
+    throw new Error('Chat not found');
+  }
+
+  const chat = chatSnap.data() as Chat;
+
+  // Create message document
   const messageData = {
     id: newMessageRef.id,
     chatId,
@@ -370,17 +399,22 @@ export const sendMessage = async (
     edited: false,
   };
 
-  await setDoc(newMessageRef, messageData);
+  // Add message to batch
+  batch.set(newMessageRef, messageData);
 
-  // Update chat's lastActivity (no more lastMessage duplication)
-  const chatRef = doc(db, 'chats', chatId);
-  await setDoc(
-    chatRef,
-    {
-      lastActivity: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  // Update chat with lastActivity and increment unread count for other participants
+  const updatedParticipants = chat.participants.map((p) => ({
+    ...p,
+    unreadCount: p.userId === senderId ? 0 : p.unreadCount + 1,
+  }));
+
+  batch.update(chatRef, {
+    lastActivity: serverTimestamp(),
+    participants: updatedParticipants,
+  });
+
+  // Commit all changes in one batch
+  await batch.commit();
 
   return {
     ...messageData,
@@ -506,8 +540,16 @@ export const subscribeToChat = (
     (doc) => {
       if (doc.exists()) {
         const data = doc.data();
-        const chat = { id: doc.id, ...data } as Chat;
-        chat.createdAt = convertTimestamp(data.createdAt as Date | Timestamp);
+        const chat = {
+          id: doc.id,
+          ...data,
+          type: data.type,
+          participants: data.participants,
+          createdAt: convertTimestamp(data.createdAt as Date | Timestamp),
+          lastActivity: data.lastActivity
+            ? convertTimestamp(data.lastActivity as Date | Timestamp)
+            : undefined,
+        } as Chat;
         callback(chat);
       } else {
         callback(null);

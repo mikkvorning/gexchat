@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified;
+    }
+
+    function isUserInChat(chatData) {
+      return chatData.participants.hasAny([{ userId: request.auth.uid }]);
+    }
+
+    // User collection rules
+    match /users/{userId} {
+      // Users can read all users (needed for search, display names, etc)
+      allow read: if isSignedIn() && isEmailVerified();
+      // Users can only write their own document
+      allow write: if isSignedIn() && isEmailVerified() && request.auth.uid == userId;
+    }
+
+    // Chat collection rules
+    match /chats/{chatId} {
+      // Can read chats they're a participant in
+      allow read: if isSignedIn() && isEmailVerified() && isUserInChat(resource.data);
+      // Can create new chats
+      allow create: if isSignedIn() && isEmailVerified();
+      // Can update chats they're a participant in
+      allow update: if isSignedIn() && isEmailVerified() && isUserInChat(resource.data);
+      // No chat deletion for now
+      allow delete: if false;
+      
+      // Messages subcollection rules
+      match /messages/{messageId} {
+        // Can read/write messages in chats they're a participant in
+        allow read, write: if isSignedIn() && isEmailVerified() && isUserInChat(get(/databases/$(database)/documents/chats/$(chatId)).data);
+      }
+    }
+  }
+}

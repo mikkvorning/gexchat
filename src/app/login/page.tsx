@@ -7,15 +7,18 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  UserCredential,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Formik, FormikHelpers } from 'formik';
+import { User, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import * as Yup from 'yup';
 import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
 import { FormikErrors, FormikTouched } from 'formik';
 import { FormHelperText } from '@mui/material';
+import EmailVerification from '@/components/Auth/EmailVerification';
 
 interface FormFieldConfig {
   name: keyof FormValues;
@@ -169,6 +172,11 @@ const Login = () => {
     setIsSignup(!isSignup);
   };
 
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [userCredential, setUserCredential] = useState<
+    UserCredential | undefined
+  >();
   const handleSubmit = async (
     values: FormValues,
     { setSubmitting, setErrors }: FormikHelpers<FormValues>
@@ -193,40 +201,59 @@ const Login = () => {
           displayName: nickname,
         });
 
-        // Save user data to Firestore
-        const userDoc: CurrentUser = {
-          id: userCredential.user.uid,
-          email: values.email,
-          displayName: nickname,
-          username: nickname.toLowerCase(), // Store lowercase version for search
-          avatarUrl: '',
-          status: 'online',
-          createdAt: new Date(),
-          chats: [],
-          privacy: {
-            showStatus: true,
-            showLastSeen: true,
-            showActivity: true,
-          },
-          notifications: {
-            enabled: true,
-            sound: true,
-            muteUntil: null,
-          },
-          friends: {
-            list: [],
-            pending: [],
-          },
-          blocked: [],
-        };
-        await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+        // Send verification email
+        await sendEmailVerification(userCredential.user);
+        setUserCredential(userCredential);
+        setVerificationSent(true);
+        setVerificationEmail(values.email);
+        setSubmitting(false);
+        return;
       } else {
         userCredential = await signInWithEmailAndPassword(
           auth,
           values.email,
           values.password
         );
-      } // Set the user in the auth context
+
+        // Check if email is verified for login
+        if (!userCredential.user.emailVerified) {
+          setVerificationEmail(values.email);
+          setUserCredential(userCredential);
+          setVerificationSent(true); // Show the verification UI instead of error message
+          try {
+            await sendEmailVerification(userCredential.user);
+          } catch (err) {
+            const error = err as { code?: string };
+            console.error('Error sending verification email:', error);
+            setVerificationSent(false);
+            setUserCredential(undefined);
+            if (error.code === 'auth/too-many-requests') {
+              setErrors({
+                authError:
+                  'Please verify your email address to continue. A verification email was sent earlier. Check your spam folder or try again in a few minutes.',
+              });
+            } else {
+              setErrors({
+                authError:
+                  'Please verify your email address to continue. We encountered an error sending a new verification email. Please try again in a few minutes.',
+              });
+            }
+          }
+          setSubmitting(false);
+          return;
+        }
+
+        // Check if user profile exists, if not create it (happens after verification)
+        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (!userDoc.exists()) {
+          await initializeUserProfile(
+            userCredential.user,
+            userCredential.user.displayName ||
+              userCredential.user.email?.split('@')[0] ||
+              ''
+          );
+        }
+      }
       setUser(userCredential.user);
 
       // Set the session cookie properly with the user's ID
@@ -250,6 +277,51 @@ const Login = () => {
       setSubmitting(false);
     }
   };
+
+  // Helper function to create a new user profile in Firestore
+  const initializeUserProfile = async (user: User, nickname: string) => {
+    const userDoc: CurrentUser = {
+      id: user.uid,
+      email: user.email || '',
+      displayName: nickname,
+      username: nickname.toLowerCase(),
+      avatarUrl: '',
+      status: 'online',
+      createdAt: new Date(),
+      chats: [],
+      privacy: {
+        showStatus: true,
+        showLastSeen: true,
+        showActivity: true,
+      },
+      notifications: {
+        enabled: true,
+        sound: true,
+        muteUntil: null,
+      },
+      friends: {
+        list: [],
+        pending: [],
+      },
+      blocked: [],
+    };
+    await setDoc(doc(db, 'users', user.uid), userDoc);
+  };
+
+  if (verificationSent) {
+    return (
+      <EmailVerification
+        email={verificationEmail}
+        userCredential={userCredential}
+        onBackToLogin={() => {
+          setVerificationSent(false);
+          setVerificationEmail('');
+          setUserCredential(undefined);
+          setIsSignup(false); // Reset to login mode
+        }}
+      />
+    );
+  }
 
   return (
     <Box
@@ -344,14 +416,11 @@ const Login = () => {
               </Button>
 
               {errors.authError && (
-                <Typography
-                  color='error'
-                  variant='body2'
-                  my={2}
-                  textAlign='center'
-                >
-                  {errors.authError}
-                </Typography>
+                <Box my={2} textAlign='center'>
+                  <Typography color='error' variant='body2'>
+                    {errors.authError}
+                  </Typography>
+                </Box>
               )}
             </Box>
           )}

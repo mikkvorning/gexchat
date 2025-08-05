@@ -1,5 +1,3 @@
-// No external types needed for now
-
 /**
  * Basic user info available to all users
  */
@@ -9,24 +7,6 @@ export interface BaseUser {
   username: string; // Lowercase version for case-insensitive searches
   avatarUrl?: string;
   status: 'online' | 'offline' | 'away';
-}
-
-/**
- * Extended user info visible in chats
- */
-export interface ChatParticipantUser extends BaseUser {
-  lastSeen?: Date;
-  currentActivity?: string;
-}
-
-/**
- * Extended user information visible to friends
- */
-export interface FriendUser extends ChatParticipantUser {
-  nickname?: string;
-  friendshipDate: Date;
-  lastSeen?: Date;
-  currentActivity?: string;
 }
 
 /**
@@ -63,21 +43,6 @@ export interface CurrentUser extends BaseUser {
 }
 
 /**
- * Represents a friend relationship between users
- */
-export interface Friendship {
-  id: string;
-  users: [string, string]; // IDs of the two users
-  status: 'pending' | 'accepted' | 'blocked';
-  createdAt: Date;
-  updatedAt?: Date;
-
-  // Basic privacy settings
-  showActivity: boolean;
-  showLastSeen: boolean;
-}
-
-/**
  * Base message type
  */
 export interface Message {
@@ -101,57 +66,10 @@ export interface Message {
 export interface Chat {
   id: string;
   type: 'direct' | 'group';
-  name?: string; // Required for group chats
-  participants: {
-    userId: string;
-    role: 'admin' | 'member';
-    joinedAt: Date;
-  }[];
+  name?: string; // Optional, mainly for group chats
+  participants: ChatParticipant[];
   createdAt: Date;
-  unreadCount: number;
-}
-
-/**
- * Message pagination response
- */
-export interface MessagePage {
-  messages: Message[];
-  hasMore: boolean;
-  nextCursor?: string;
-}
-
-/**
- * Represents chat settings and preferences
- */
-export interface ChatSettings {
-  userId: string;
-  notifications: boolean;
-  soundEnabled: boolean;
-  theme: 'light' | 'dark' | 'system';
-  messagePreview: boolean;
-}
-
-/**
- * Represents the current state of typing indicators
- */
-export interface TypingIndicator {
-  chatId: string;
-  userId: string;
-  timestamp: Date;
-}
-
-/**
- * Represents a draft message being composed
- */
-export interface MessageDraft {
-  chatId: string;
-  content: string;
-  attachments?: {
-    type: 'image' | 'file';
-    file: File;
-    previewURL?: string;
-  }[];
-  replyToMessageId?: string;
+  lastActivity?: Date;
 }
 
 /**
@@ -182,4 +100,13 @@ export interface ChatSummary {
   lastMessage?: Message;
   unreadCount: number;
   updatedAt: Date;
+}
+
+/**
+ * Represents a chat participant with essential display info
+ */
+export interface ChatParticipant {
+  userId: string;
+  displayName: string;
+  unreadCount: number;
 }
