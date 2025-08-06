@@ -111,47 +111,56 @@ const ChatItem = React.memo(
 ChatItem.displayName = 'ChatItem';
 
 const ChatList: React.FC = () => {
-  const { user } = useAuth();
-  const { setSelectedChat } = useAppContext();
+	const { user } = useAuth();
+	const { setSelectedChat, selectedChat } = useAppContext();
 
-  // Memoize user ID to prevent unnecessary hook re-renders
-  const currentUserId = useMemo(() => user?.uid, [user?.uid]);
+	// Memoize user ID to prevent unnecessary hook re-renders
+	const currentUserId = useMemo(() => user?.uid, [user?.uid]);
 
-  // Use custom hook for data and state management
-  const { chats, userColors, isLoading, error } = useChatList(currentUserId);
+	// Use custom hook for data and state management
+	const { chats, userColors, isLoading, error, resetLocalUnreadCount } =
+		useChatList(currentUserId, selectedChat ?? undefined);
 
-  // Memoize the chat selection handler
-  const handleChatSelect = useCallback(
-    (chatId: string) => {
-      setSelectedChat(chatId);
-    },
-    [setSelectedChat]
-  );
+	// Memoize the chat selection handler
+	const handleChatSelect = useCallback(
+		async (chatId: string) => {
+			setSelectedChat(chatId);
+			if (currentUserId) {
+				// Optimistically reset unread count client-side
+				if (resetLocalUnreadCount) resetLocalUnreadCount(chatId);
+				// Also reset in Firestore
+				import('@/lib/chatService').then(({ resetUnreadCount }) => {
+					resetUnreadCount(chatId, currentUserId);
+				});
+			}
+		},
+		[setSelectedChat, currentUserId, resetLocalUnreadCount]
+	);
 
-  if (isLoading) {
-    return <LoadingState message='Loading chats...' />;
-  }
+	if (isLoading) {
+		return <LoadingState message='Loading chats...' />;
+	}
 
-  if (error) {
-    return <LoadingState message='Failed to load chats' />;
-  }
+	if (error) {
+		return <LoadingState message='Failed to load chats' />;
+	}
 
-  if (chats.length === 0) {
-    return <LoadingState message='No chats yet. Start a conversation!' />;
-  }
+	if (chats.length === 0) {
+		return <LoadingState message='No chats yet. Start a conversation!' />;
+	}
 
-  return (
-    <List>
-      {chats.map((chat) => (
-        <ChatItem
-          key={chat.chatId}
-          chat={chat}
-          userColors={userColors}
-          onChatSelect={handleChatSelect}
-        />
-      ))}
-    </List>
-  );
+	return (
+		<List>
+			{chats.map((chat) => (
+				<ChatItem
+					key={chat.chatId}
+					chat={chat}
+					userColors={userColors}
+					onChatSelect={handleChatSelect}
+				/>
+			))}
+		</List>
+	);
 };
 
 export default ChatList;

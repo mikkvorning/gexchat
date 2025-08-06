@@ -20,6 +20,7 @@ import {
   serverTimestamp,
   setDoc,
   Timestamp,
+  updateDoc,
   where,
   writeBatch,
   type Unsubscribe,
@@ -366,60 +367,71 @@ export const getChatMessages = async (chatId: string): Promise<Message[]> => {
 
 /**
  * Send a message to a chat
+ *
+ * If the sender is actively viewing the chat, do not increment their unread count.
+ * Optionally pass activeUserId and activeChatId to prevent incrementing unread count for the active user.
  */
 export const sendMessage = async (
-  chatId: string,
-  senderId: string,
-  content: string
+	chatId: string,
+	senderId: string,
+	content: string,
+	activeUserId?: string,
+	activeChatId?: string
 ): Promise<Message> => {
-  if (!chatId || !senderId || !content.trim()) {
-    throw new Error('Chat ID, sender ID, and content are required');
-  }
+	if (!chatId || !senderId || !content.trim()) {
+		throw new Error('Chat ID, sender ID, and content are required');
+	}
 
-  const batch = writeBatch(db);
-  const chatRef = doc(db, 'chats', chatId);
-  const messagesRef = collection(db, 'chats', chatId, 'messages');
-  const newMessageRef = doc(messagesRef);
+	const batch = writeBatch(db);
+	const chatRef = doc(db, 'chats', chatId);
+	const messagesRef = collection(db, 'chats', chatId, 'messages');
+	const newMessageRef = doc(messagesRef);
 
-  // Get chat to update unread count for other participants
-  const chatSnap = await getDoc(chatRef);
-  if (!chatSnap.exists()) {
-    throw new Error('Chat not found');
-  }
+	// Get chat to update unread count for other participants
+	const chatSnap = await getDoc(chatRef);
+	if (!chatSnap.exists()) {
+		throw new Error('Chat not found');
+	}
 
-  const chat = chatSnap.data() as Chat;
+	const chat = chatSnap.data() as Chat;
 
-  // Create message document
-  const messageData = {
-    id: newMessageRef.id,
-    chatId,
-    senderId,
-    content: content.trim(),
-    timestamp: serverTimestamp(),
-    edited: false,
-  };
+	// Create message document
+	const messageData = {
+		id: newMessageRef.id,
+		chatId,
+		senderId,
+		content: content.trim(),
+		timestamp: serverTimestamp(),
+		edited: false,
+	};
 
-  // Add message to batch
-  batch.set(newMessageRef, messageData);
+	// Add message to batch
+	batch.set(newMessageRef, messageData);
 
-  // Update chat with lastActivity and increment unread count for other participants
-  const updatedParticipants = chat.participants.map((p) => ({
-    ...p,
-    unreadCount: p.userId === senderId ? 0 : p.unreadCount + 1,
-  }));
+	// Update chat with lastActivity and increment unread count for other participants
+	const updatedParticipants = chat.participants.map((p) => {
+		if (p.userId === senderId) {
+			return { ...p, unreadCount: 0 };
+		}
+		// If user is actively viewing this chat, do not increment their unread count
+		if (activeUserId && activeChatId === chatId && p.userId === activeUserId) {
+			return p;
+		}
+		return { ...p, unreadCount: p.unreadCount + 1 };
+	});
 
-  batch.update(chatRef, {
-    lastActivity: serverTimestamp(),
-    participants: updatedParticipants,
-  });
+	batch.update(chatRef, {
+		lastActivity: serverTimestamp(),
+		participants: updatedParticipants,
+	});
 
-  // Commit all changes in one batch
-  await batch.commit();
+	// Commit all changes in one batch
+	await batch.commit();
 
-  return {
-    ...messageData,
-    timestamp: new Date(), // Return current date for immediate UI update
-  } as Message;
+	return {
+		...messageData,
+		timestamp: new Date(), // Return current date for immediate UI update
+	} as Message;
 };
 
 /**
@@ -559,4 +571,20 @@ export const subscribeToChat = (
       console.error('Error in chat subscription:', error);
     }
   );
+};
+
+/**
+ * Reset unread count for a user in a chat
+ *
+ * TODO: For future optimization, consider client-side unread resets with timestamp comparison and session storage. This would reduce API calls by syncing the reset to the DB only on next relevant write (e.g., sending a message or app load). Ensure to handle edge cases like tab close, multiple devices, and desync by comparing timestamps between local and DB values.
+ */
+export const resetUnreadCount = async (chatId: string, userId: string) => {
+	const chatRef = doc(db, 'chats', chatId);
+	const chatSnap = await getDoc(chatRef);
+	if (!chatSnap.exists()) return;
+	const chat = chatSnap.data() as Chat;
+	const updatedParticipants = chat.participants.map((p) =>
+		p.userId === userId ? { ...p, unreadCount: 0 } : p
+	);
+	await updateDoc(chatRef, { participants: updatedParticipants });
 };
