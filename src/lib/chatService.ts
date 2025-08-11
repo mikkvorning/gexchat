@@ -109,45 +109,6 @@ export const createChat = async (
     createdAt: serverTimestamp(),
   });
 
-  // Check for blocking relationships and update user chats in batch
-  for (const user of userDocs) {
-    const { userId, userRef, exists, data } = user;
-
-    // Check if this user has blocked any other participants
-    const otherParticipantIds = allParticipantIds.filter((id) => id !== userId);
-    const blockedUsers = data?.blocked || [];
-    const hasBlockedParticipant = otherParticipantIds.some((id) =>
-      blockedUsers.includes(id)
-    );
-
-    // Check if any other participant has blocked this user
-    const isBlockedByOthers = userDocs
-      .filter((u) => u.userId !== userId && u.data)
-      .some((u) => (u.data?.blocked || []).includes(userId));
-
-    // Only add chat to user's list if there's no blocking involved
-    if (!hasBlockedParticipant && !isBlockedByOthers) {
-      if (exists && data) {
-        // Update existing user document
-        const currentChats = Array.isArray(data.chats) ? data.chats : [];
-        batch.update(userRef, {
-          chats: [...currentChats, chatId],
-        });
-      } else {
-        // Create new user document
-        batch.set(
-          userRef,
-          {
-            id: userId,
-            chats: [chatId],
-            createdAt: new Date(),
-          },
-          { merge: true }
-        );
-      }
-    }
-  }
-
   // Commit all operations in a single batch
   await batch.commit();
 
@@ -372,66 +333,91 @@ export const getChatMessages = async (chatId: string): Promise<Message[]> => {
  * Optionally pass activeUserId and activeChatId to prevent incrementing unread count for the active user.
  */
 export const sendMessage = async (
-	chatId: string,
-	senderId: string,
-	content: string,
-	activeUserId?: string,
-	activeChatId?: string
+  chatId: string,
+  senderId: string,
+  content: string,
+  activeUserId?: string,
+  activeChatId?: string
 ): Promise<Message> => {
-	if (!chatId || !senderId || !content.trim()) {
-		throw new Error('Chat ID, sender ID, and content are required');
-	}
+  if (!chatId || !senderId || !content.trim()) {
+    throw new Error('Chat ID, sender ID, and content are required');
+  }
 
-	const batch = writeBatch(db);
-	const chatRef = doc(db, 'chats', chatId);
-	const messagesRef = collection(db, 'chats', chatId, 'messages');
-	const newMessageRef = doc(messagesRef);
+  const batch = writeBatch(db);
+  const chatRef = doc(db, 'chats', chatId);
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  const newMessageRef = doc(messagesRef);
 
-	// Get chat to update unread count for other participants
-	const chatSnap = await getDoc(chatRef);
-	if (!chatSnap.exists()) {
-		throw new Error('Chat not found');
-	}
+  // Get chat to update unread count for other participants
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) {
+    throw new Error('Chat not found');
+  }
 
-	const chat = chatSnap.data() as Chat;
+  const chat = chatSnap.data() as Chat;
 
-	// Create message document
-	const messageData = {
-		id: newMessageRef.id,
-		chatId,
-		senderId,
-		content: content.trim(),
-		timestamp: serverTimestamp(),
-		edited: false,
-	};
+  // Check if this is the first message in the chat
+  const messagesQuery = query(messagesRef, limit(1));
+  const messagesSnap = await getDocs(messagesQuery);
+  const isFirstMessage = messagesSnap.empty;
 
-	// Add message to batch
-	batch.set(newMessageRef, messageData);
+  // Create message document
+  const messageData = {
+    id: newMessageRef.id,
+    chatId,
+    senderId,
+    content: content.trim(),
+    timestamp: serverTimestamp(),
+    edited: false,
+  };
 
-	// Update chat with lastActivity and increment unread count for other participants
-	const updatedParticipants = chat.participants.map((p) => {
-		if (p.userId === senderId) {
-			return { ...p, unreadCount: 0 };
-		}
-		// If user is actively viewing this chat, do not increment their unread count
-		if (activeUserId && activeChatId === chatId && p.userId === activeUserId) {
-			return p;
-		}
-		return { ...p, unreadCount: p.unreadCount + 1 };
-	});
+  // Add message to batch
+  batch.set(newMessageRef, messageData);
 
-	batch.update(chatRef, {
-		lastActivity: serverTimestamp(),
-		participants: updatedParticipants,
-	});
+  // Update chat with lastActivity and increment unread count for other participants
+  const updatedParticipants = chat.participants.map((p) => {
+    if (p.userId === senderId) {
+      return { ...p, unreadCount: 0 };
+    }
+    // If user is actively viewing this chat, do not increment their unread count
+    if (activeUserId && activeChatId === chatId && p.userId === activeUserId) {
+      return p;
+    }
+    return { ...p, unreadCount: p.unreadCount + 1 };
+  });
 
-	// Commit all changes in one batch
-	await batch.commit();
+  batch.update(chatRef, {
+    lastActivity: serverTimestamp(),
+    participants: updatedParticipants,
+  });
 
-	return {
-		...messageData,
-		timestamp: new Date(), // Return current date for immediate UI update
-	} as Message;
+  // If this is the first message, add chatId to all participants' user docs
+  if (isFirstMessage) {
+    for (const participant of chat.participants) {
+      const userRef = doc(db, 'users', participant.userId);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.exists() ? userSnap.data() : {};
+      batch.set(
+        userRef,
+        {
+          id: participant.userId,
+          chats: Array.isArray(userData.chats)
+            ? Array.from(new Set([...userData.chats, chatId]))
+            : [chatId],
+          createdAt: userData.createdAt || new Date(),
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  // Commit all changes in one batch
+  await batch.commit();
+
+  return {
+    ...messageData,
+    timestamp: new Date(), // Return current date for immediate UI update
+  } as Message;
 };
 
 /**
@@ -579,12 +565,12 @@ export const subscribeToChat = (
  * TODO: For future optimization, consider client-side unread resets with timestamp comparison and session storage. This would reduce API calls by syncing the reset to the DB only on next relevant write (e.g., sending a message or app load). Ensure to handle edge cases like tab close, multiple devices, and desync by comparing timestamps between local and DB values.
  */
 export const resetUnreadCount = async (chatId: string, userId: string) => {
-	const chatRef = doc(db, 'chats', chatId);
-	const chatSnap = await getDoc(chatRef);
-	if (!chatSnap.exists()) return;
-	const chat = chatSnap.data() as Chat;
-	const updatedParticipants = chat.participants.map((p) =>
-		p.userId === userId ? { ...p, unreadCount: 0 } : p
-	);
-	await updateDoc(chatRef, { participants: updatedParticipants });
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) return;
+  const chat = chatSnap.data() as Chat;
+  const updatedParticipants = chat.participants.map((p) =>
+    p.userId === userId ? { ...p, unreadCount: 0 } : p
+  );
+  await updateDoc(chatRef, { participants: updatedParticipants });
 };
