@@ -19,7 +19,7 @@ export const useSendMessage = ({
   const [messageText, setMessageText] = useState('');
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string>('');
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Helper function for retry functionality
   // This function allows resending a failed message with its exact original content,
@@ -48,7 +48,7 @@ export const useSendMessage = ({
     }) => sendMessage(chatId, senderId, content),
     onSuccess: () => {
       // Message sent successfully, input was already cleared optimistically
-      messageInputRef.current?.focus();
+      // No need to focus here, handled by useEffect
     },
     onError: (error, variables) => {
       console.error('Failed to send message:', error);
@@ -60,7 +60,7 @@ export const useSendMessage = ({
       if (onError) {
         onError(variables.content, () => retrySendMessage(variables.content));
       }
-      messageInputRef.current?.focus();
+      // No need to focus here, handled by useEffect
     },
   });
 
@@ -85,9 +85,7 @@ export const useSendMessage = ({
       senderId: userId,
       content: messageToSend,
     });
-
-    // Keep focus on input after initiating send
-    messageInputRef.current?.focus();
+    // No need to focus here, handled by useEffect
   };
 
   // Handle Enter key press
@@ -107,17 +105,14 @@ export const useSendMessage = ({
   // Handle retry button click
   const handleRetry = () => {
     if (failedMessage && chatId && userId) {
-      // Directly resend the failed message
       sendMessageMutation.mutate({
         chatId,
         senderId: userId,
         content: failedMessage,
       });
-
-      // Clear the error state since we're retrying
       setShowErrorSnackbar(false);
       setFailedMessage('');
-      messageInputRef.current?.focus();
+      // No need to focus here, handled by useEffect
     }
   };
 

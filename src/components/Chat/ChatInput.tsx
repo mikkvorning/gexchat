@@ -1,6 +1,7 @@
 import { Box, Paper, TextField, IconButton } from '../../app/muiImports';
 import SendIcon from '@mui/icons-material/Send';
 import { useSendMessage } from './hooks/useSendMessage';
+import { useEffect } from 'react';
 
 interface ChatInputProps {
   chatId: string | null;
@@ -18,6 +19,10 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
     handleKeyPress,
   } = useSendMessage({ chatId, userId, onError: onSendError });
 
+  useEffect(() => {
+    // Cleanup: remove debug log effect
+  }, []);
+
   return (
     <Paper
       sx={{
@@ -27,7 +32,7 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
         <TextField
-          inputRef={messageInputRef}
+          inputProps={{ ref: messageInputRef }}
           variant='outlined'
           placeholder='Type a message...'
           fullWidth
@@ -36,7 +41,6 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={sendMessageMutation.isPending}
         />
         <IconButton
           size='large'
