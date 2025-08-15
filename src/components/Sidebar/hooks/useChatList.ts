@@ -27,7 +27,7 @@ export const useChatList = (
   userId: string | undefined,
   selectedChatId?: string
 ) => {
-  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +44,7 @@ export const useChatList = (
 
     const unsubscribeUser = onSnapshot(userRef, (userSnap) => {
       if (!userSnap.exists()) {
-        setChats([]);
+        setChatSummaries([]);
         setIsLoading(false);
         return;
       }
@@ -53,7 +53,7 @@ export const useChatList = (
         ? userData.chats
         : [];
       if (chatIds.length === 0) {
-        setChats([]);
+        setChatSummaries([]);
         setIsLoading(false);
         chatUnsubscribers.forEach((unsub) => unsub());
         chatUnsubscribers = [];
@@ -83,20 +83,20 @@ export const useChatList = (
             0;
           if (selectedChatId && selectedChatId === chatId) unreadCount = 0;
           loadedChats = [
-            ...loadedChats.filter((c) => c.chatId !== chatId),
+            ...loadedChats.filter((c) => c.summaryId !== chatId),
             {
-              chatId: chat.id,
+              summaryId: chat.id,
               type: chat.type,
               name: chat.name,
               otherParticipants,
-              lastMessage: undefined,
+              lastMessage: chat.lastMessage, // <-- now from root level
               unreadCount,
               updatedAt: chat.lastActivity
                 ? new Date(chat.lastActivity)
                 : new Date(chat.createdAt),
             },
           ];
-          setChats([...loadedChats]);
+          setChatSummaries([...loadedChats]);
           setIsLoading(false);
         });
         chatUnsubscribers.push(unsubscribe);
@@ -111,26 +111,26 @@ export const useChatList = (
 
   const userColors = useMemo(() => {
     const colors: Record<string, string> = {};
-    chats.forEach((chat) => {
-      chat.otherParticipants.forEach((participant) => {
+    chatSummaries.forEach((summary) => {
+      summary.otherParticipants.forEach((participant) => {
         if (!colors[participant.id]) {
           colors[participant.id] = generateAvatarColor(participant.id);
         }
       });
     });
     return colors;
-  }, [chats]);
+  }, [chatSummaries]);
 
   const resetLocalUnreadCount = (chatId: string) => {
-    setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.chatId === chatId ? { ...chat, unreadCount: 0 } : chat
+    setChatSummaries((prevSummaries) =>
+      prevSummaries.map((chat) =>
+        chat.summaryId === chatId ? { ...chat, unreadCount: 0 } : chat
       )
     );
   };
 
   return {
-    chats,
+    chatSummaries,
     userColors,
     isLoading,
     error,

@@ -70,6 +70,7 @@ export interface Chat {
   participants: ChatParticipant[];
   createdAt: Date;
   lastActivity?: Date;
+  lastMessage?: Message; // <-- add this
 }
 
 /**
@@ -93,7 +94,7 @@ export interface CreateChatResponse {
  * User's chat summary for sidebar display
  */
 export interface ChatSummary {
-  chatId: string;
+  summaryId: string;
   type: 'direct' | 'group';
   name?: string;
   otherParticipants: BaseUser[]; // Other users in the chat (excluding current user)
@@ -109,4 +110,5 @@ export interface ChatParticipant {
   userId: string;
   displayName: string;
   unreadCount: number;
+  lastMessage?: Message; // New: last unread message for this participant
 }

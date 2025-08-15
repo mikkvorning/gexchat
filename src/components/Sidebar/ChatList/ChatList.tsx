@@ -1,24 +1,24 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Avatar,
+  Badge,
+  Box,
+  LinearProgress,
   List,
   ListItem,
   ListItemText,
   Typography,
-  Badge,
-  Box,
-  LinearProgress,
 } from '../../../app/muiImports';
-import { useAuth } from '../../AuthProvider';
+import { ChatSummary } from '../../../types/types';
 import { useAppContext } from '../../AppProvider';
+import { useAuth } from '../../AuthProvider';
 import { useChatList } from '../hooks/useChatList';
 import {
-  getChatDisplayName,
-  getChatAvatarProps,
   formatLastMessage,
   formatTimestamp,
+  getChatAvatarProps,
+  getChatDisplayName,
 } from '../utils/chatListUtils';
-import { ChatSummary } from '../../../types/types';
 
 // Loading state component
 const LoadingState = ({ message }: { message: string }) => (
@@ -32,20 +32,43 @@ const LoadingState = ({ message }: { message: string }) => (
 // Individual chat item component
 const ChatItem = React.memo(
   ({
-    chat,
+    chatSummary,
     userColors,
     onChatSelect,
   }: {
-    chat: ChatSummary;
+    chatSummary: ChatSummary;
     userColors: Record<string, string>;
     onChatSelect: (chatId: string) => void;
   }) => {
-    const avatarProps = getChatAvatarProps(chat, userColors);
-    const hasUnread = chat.unreadCount > 0;
+    const avatarProps = getChatAvatarProps(chatSummary, userColors);
+    const hasUnread = chatSummary.unreadCount > 0;
 
     const handleClick = useCallback(() => {
-      onChatSelect(chat.chatId);
-    }, [chat.chatId, onChatSelect]);
+      onChatSelect(chatSummary.summaryId);
+    }, [chatSummary.summaryId, onChatSelect]);
+
+    // Only show preview if there are unread messages and a last message
+
+    const timeStamp =
+      chatSummary.lastMessage?.timestamp && chatSummary.unreadCount > 0 ? (
+        <Typography variant='caption' color='text.secondary'>
+          {formatTimestamp(chatSummary.lastMessage.timestamp)}
+        </Typography>
+      ) : null;
+
+    const preview =
+      hasUnread && chatSummary.lastMessage ? (
+        <Typography
+          variant='body2'
+          color='text.secondary'
+          sx={{
+            fontWeight: 'medium',
+            opacity: 1,
+          }}
+        >
+          {formatLastMessage(chatSummary)}
+        </Typography>
+      ) : null;
 
     return (
       <ListItem
@@ -60,7 +83,7 @@ const ChatItem = React.memo(
         }}
       >
         <Badge
-          badgeContent={chat.unreadCount}
+          badgeContent={chatSummary.unreadCount}
           color='primary'
           invisible={!hasUnread}
           sx={{ mr: 2 }}
@@ -82,27 +105,12 @@ const ChatItem = React.memo(
                   fontWeight: hasUnread ? 'bold' : 'normal',
                 }}
               >
-                {getChatDisplayName(chat)}
+                {getChatDisplayName(chatSummary)}
               </Typography>
-              {chat.lastMessage && (
-                <Typography variant='caption' color='text.secondary'>
-                  {formatTimestamp(chat.lastMessage.timestamp)}
-                </Typography>
-              )}
+              {timeStamp}
             </Box>
           }
-          secondary={
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{
-                fontWeight: hasUnread ? 'medium' : 'normal',
-                opacity: hasUnread ? 1 : 0.7,
-              }}
-            >
-              {formatLastMessage(chat)}
-            </Typography>
-          }
+          secondary={preview}
         />
       </ListItem>
     );
@@ -119,7 +127,7 @@ const ChatList: React.FC = () => {
   const currentUserId = useMemo(() => user?.uid, [user?.uid]);
 
   // Use custom hook for data and state management
-  const { chats, userColors, isLoading, error, resetLocalUnreadCount } =
+  const { chatSummaries, userColors, isLoading, error, resetLocalUnreadCount } =
     useChatList(currentUserId, selectedChat ?? undefined);
 
   // Memoize the chat selection handler
@@ -129,7 +137,7 @@ const ChatList: React.FC = () => {
       if (currentUserId) {
         // Optimistically reset unread count client-side
         if (resetLocalUnreadCount) resetLocalUnreadCount(chatId);
-        // Also reset in Firestore
+        // Dynamic import to avoid initial load for chats that are never actually selected
         import('@/lib/chatService').then(({ resetUnreadCount }) => {
           resetUnreadCount(chatId, currentUserId);
         });
@@ -151,7 +159,7 @@ const ChatList: React.FC = () => {
     return <LoadingState message='Failed to load chats' />;
   }
 
-  if (chats.length === 0) {
+  if (chatSummaries.length === 0) {
     return (
       <LoadingState message='Search for users above in order to start new chats!' />
     );
@@ -159,10 +167,10 @@ const ChatList: React.FC = () => {
 
   return (
     <List>
-      {chats.map((chat) => (
+      {chatSummaries.map((summary) => (
         <ChatItem
-          key={chat.chatId}
-          chat={chat}
+          key={summary.summaryId}
+          chatSummary={summary}
           userColors={userColors}
           onChatSelect={handleChatSelect}
         />

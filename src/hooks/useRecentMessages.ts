@@ -84,7 +84,7 @@ export const useRecentMessages = (userId: string | undefined) => {
 
                 return oldChats
                   .map((chat) => {
-                    if (chat.chatId === chatId) {
+                    if (chat.summaryId === chatId) {
                       return {
                         ...chat,
                         lastMessage,

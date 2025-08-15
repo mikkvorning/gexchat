@@ -1,5 +1,6 @@
 import { shouldUseWhiteText } from '../../../utils/colors';
 import { ChatSummary } from '../../../types/types';
+import { isFirestoreTimestamp } from '../../../utils/firestore';
 
 /**
  * Utility functions for ChatList display logic
@@ -47,15 +48,27 @@ export const getChatAvatarProps = (
 };
 
 export const formatLastMessage = (chat: ChatSummary): string => {
-  if (!chat.lastMessage) return 'No messages yet';
-
-  const content = chat.lastMessage.content;
+  const content = chat.lastMessage?.content || '';
   return content.length > 50 ? `${content.substring(0, 50)}...` : content;
 };
 
-export const formatTimestamp = (date: Date): string => {
+// Accepts Date, Firestore Timestamp, or undefined
+export const formatTimestamp = (
+  date: Date | { seconds: number; nanoseconds: number } | undefined
+): string => {
+  let jsDate: Date | null = null;
+  if (!date) return '';
+
+  if (isFirestoreTimestamp(date)) {
+    jsDate = new Date(date.seconds * 1000);
+  } else if (date instanceof Date) {
+    jsDate = date;
+  } else {
+    return '';
+  }
+
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = now.getTime() - jsDate.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
@@ -65,5 +78,5 @@ export const formatTimestamp = (date: Date): string => {
   if (hours < 24) return `${hours}h`;
   if (days < 7) return `${days}d`;
 
-  return date.toLocaleDateString();
+  return jsDate.toLocaleDateString();
 };

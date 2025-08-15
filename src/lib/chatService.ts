@@ -266,7 +266,7 @@ export const getUserChats = async (userId: string): Promise<ChatSummary[]> => {
       }
 
       return {
-        chatId: chat.id,
+        summaryId: chat.id,
         type: chat.type,
         name: chat.name,
         otherParticipants,
@@ -374,7 +374,7 @@ export const sendMessage = async (
   // Add message to batch
   batch.set(newMessageRef, messageData);
 
-  // Update chat with lastActivity and increment unread count for other participants
+  // Update chat with lastActivity and lastMessage at root level, increment unread count for other participants
   const updatedParticipants = chat.participants.map((p) => {
     if (p.userId === senderId) {
       return { ...p, unreadCount: 0 };
@@ -388,6 +388,7 @@ export const sendMessage = async (
 
   batch.update(chatRef, {
     lastActivity: serverTimestamp(),
+    lastMessage: messageData,
     participants: updatedParticipants,
   });
 
