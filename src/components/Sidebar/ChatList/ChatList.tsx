@@ -146,15 +146,6 @@ const ChatList: React.FC = () => {
     [setSelectedChat, currentUserId, resetLocalUnreadCount]
   );
 
-  if (isLoading) {
-    return (
-      <>
-        <LinearProgress color='primary' />
-        <LoadingState message='Loading chats...' />
-      </>
-    );
-  }
-
   if (error) {
     return <LoadingState message='Failed to load chats' />;
   }
@@ -166,16 +157,25 @@ const ChatList: React.FC = () => {
   }
 
   return (
-    <List>
-      {chatSummaries.map((summary) => (
-        <ChatItem
-          key={summary.summaryId}
-          chatSummary={summary}
-          userColors={userColors}
-          onChatSelect={handleChatSelect}
-        />
-      ))}
-    </List>
+    <>
+      <Box height={4}>
+        {isLoading && (
+          <>
+            <LinearProgress color='primary' />
+          </>
+        )}
+      </Box>
+      <List>
+        {chatSummaries.map((summary) => (
+          <ChatItem
+            key={summary.summaryId}
+            chatSummary={summary}
+            userColors={userColors}
+            onChatSelect={handleChatSelect}
+          />
+        ))}
+      </List>
+    </>
   );
 };
 
