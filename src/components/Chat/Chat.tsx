@@ -13,16 +13,12 @@ import ErrorRibbon from './ErrorRibbon';
 const Chat = () => {
   const { user } = useAuth();
   const { selectedChat } = useAppContext();
-
-  // Custom hooks for chat functionality
   const { chat, messages, isLoading, error } = useChat(selectedChat);
   const { messagesEndRef } = useChatEffects({
     selectedChat,
     messages,
-    messageInputRef: { current: null }, // We'll handle this in ChatInput now
+    messageInputRef: { current: null },
   });
-
-  // Error handling for send messages
   const {
     showError,
     failedMessage,
@@ -83,8 +79,7 @@ const Chat = () => {
     );
   }
 
-  // Get other participant for display name (for direct chats)
-  const displayName = getChatDisplayName(chat, user?.uid);
+  const displayName = getChatDisplayName(chat!, user?.uid);
 
   return (
     <Box
@@ -95,17 +90,12 @@ const Chat = () => {
         height: '100vh',
       }}
     >
-      {/* Chat header */}
       <ChatHeader displayName={displayName} />
-
-      {/* Chat messages */}
       <ChatMessages
         messages={messages}
         currentUserId={user?.uid}
         messagesEndRef={messagesEndRef}
       />
-
-      {/* Error ribbon */}
       <ErrorRibbon
         isVisible={showError}
         failedMessage={failedMessage}
@@ -113,8 +103,6 @@ const Chat = () => {
         onClose={handleClose}
         truncateMessage={truncateMessage}
       />
-
-      {/* Chat input */}
       <ChatInput
         chatId={selectedChat}
         userId={user?.uid}

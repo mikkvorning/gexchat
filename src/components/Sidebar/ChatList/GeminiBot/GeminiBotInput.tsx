@@ -1,45 +1,35 @@
 import React from 'react';
-import { Box, Paper, TextField, IconButton } from '../../app/muiImports';
+import { Box, Paper, TextField, IconButton } from '../../../../app/muiImports';
 import SendIcon from '@mui/icons-material/Send';
-import { useSendMessage } from './hooks/useSendMessage';
 
-interface ChatInputProps {
-  chatId: string | null;
-  userId: string | undefined;
-  onSendError?: (message: string) => void;
+interface GeminiBotInputProps {
+  isLoading: boolean;
+  onSend: (content: string) => void | Promise<void>;
 }
 
-const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
+const GeminiBotInput: React.FC<GeminiBotInputProps> = ({
+  isLoading,
+  onSend,
+}) => {
   const [messageText, setMessageText] = React.useState('');
   const messageInputRef = React.useRef<HTMLTextAreaElement>(null);
-  const {
-    sendMessageMutation,
-    handleSendMessage,
-    handleKeyPress: defaultHandleKeyPress,
-  } = useSendMessage({ chatId, userId, onError: onSendError });
 
-  const handleSend = React.useCallback(() => {
-    if (!messageText.trim()) return;
+  const handleSend = async () => {
+    if (!messageText.trim() || isLoading) return;
+    const content = messageText.trim();
     setMessageText('');
-    handleSendMessage();
-  }, [messageText, handleSendMessage]);
+    await onSend(content);
+  };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleSend();
-    } else {
-      defaultHandleKeyPress(event);
     }
   };
 
   return (
-    <Paper
-      sx={{
-        borderRadius: 0,
-        p: 2,
-      }}
-    >
+    <Paper sx={{ borderRadius: 0, p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
         <TextField
           inputProps={{ ref: messageInputRef }}
@@ -51,12 +41,13 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           onKeyPress={handleKeyPress}
+          disabled={isLoading}
         />
         <IconButton
           size='large'
           color='primary'
           onClick={handleSend}
-          disabled={!messageText.trim() || sendMessageMutation.isPending}
+          disabled={!messageText.trim() || isLoading}
           sx={{ mb: 0.5 }}
         >
           <SendIcon />
@@ -66,4 +57,4 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
   );
 };
 
-export default ChatInput;
+export default GeminiBotInput;

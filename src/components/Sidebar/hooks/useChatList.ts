@@ -25,11 +25,14 @@ const fetchParticipant = async (id: string): Promise<BaseUser | null> => {
  */
 export const useChatList = (
   userId: string | undefined,
-  selectedChatId?: string
+  selectedChatId?: string,
+  isGeminiBot?: boolean
 ) => {
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ...existing code...
 
   useEffect(() => {
     if (!userId) {
@@ -129,6 +132,15 @@ export const useChatList = (
     );
   };
 
+  if (isGeminiBot) {
+    return {
+      chatSummaries: [],
+      userColors: {},
+      isLoading: false,
+      error: null,
+      resetLocalUnreadCount: () => {},
+    };
+  }
   return {
     chatSummaries,
     userColors,

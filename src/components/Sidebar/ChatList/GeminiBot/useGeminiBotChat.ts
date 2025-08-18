@@ -1,0 +1,72 @@
+import { useEffect, useRef, useState } from 'react';
+import { Message } from '@/types/types';
+import { generateGeminiText } from '@/lib/geminiService';
+
+const SESSION_KEY = 'gemini-bot-messages';
+const GEMINI_BOT_ID = 'gemini-bot';
+
+export const useGeminiBotChat = (userId: string) => {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const sendMessage = async (content: string) => {
+    const userMsg: Message = {
+      id: `${Date.now()}-user`,
+      chatId: GEMINI_BOT_ID,
+      senderId: userId,
+      content,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+    try {
+      const reply = await generateGeminiText(content);
+      const botMsg: Message = {
+        id: `${Date.now()}-bot`,
+        chatId: GEMINI_BOT_ID,
+        senderId: GEMINI_BOT_ID,
+        content: reply,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botMsg]);
+    } catch {
+      const errorMsg: Message = {
+        id: `${Date.now()}-error`,
+        chatId: GEMINI_BOT_ID,
+        senderId: GEMINI_BOT_ID,
+        content: 'Sorry, something went wrong with Gemini.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    messages,
+    isLoading,
+    sendMessage,
+    messagesEndRef,
+  };
+};

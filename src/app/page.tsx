@@ -5,8 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Box, CircularProgress, Typography } from './muiImports';
 import Chat from '@/components/Chat/Chat';
+import GeminiBotChatView from '@/components/Sidebar/ChatList/GeminiBot/GeminiBotChatView';
+import { useAppContext } from '@/components/AppProvider';
 import { AppProvider } from '@/components/AppProvider';
 import { useRecentMessages } from '@/hooks/useRecentMessages';
+
+// Renders GeminiBotChatView if Gemini-bot is selected, otherwise normal Chat
+const MainChatSwitcher = () => {
+  const { selectedChat } = useAppContext();
+  const { user } = useAuth();
+  if (selectedChat === 'gemini-bot' && user?.uid) {
+    return <GeminiBotChatView userId={user.uid} />;
+  }
+  return <Chat />;
+};
 
 const Home = () => {
   const { user, loading } = useAuth();
@@ -47,7 +59,7 @@ const Home = () => {
     <Box display='flex' height='100vh'>
       <AppProvider contacts={[]}>
         <Sidebar />
-        <Chat />
+        <MainChatSwitcher />
       </AppProvider>
     </Box>
   );

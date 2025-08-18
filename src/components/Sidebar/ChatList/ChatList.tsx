@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import GeminiBot from './GeminiBot/GeminiBot';
 import {
   Avatar,
   Badge,
@@ -146,6 +147,15 @@ const ChatList: React.FC = () => {
     [setSelectedChat, currentUserId, resetLocalUnreadCount]
   );
 
+  // Gemini-bot static item handler (must be before any returns)
+  const geminiBotId = 'gemini-bot';
+  const isGeminiSelected = selectedChat === geminiBotId;
+  const handleGeminiSelect = React.useCallback(() => {
+    setSelectedChat(geminiBotId);
+  }, [setSelectedChat]);
+
+  // ...GeminiBotListItem is now imported from its own file...
+
   if (error) {
     return <LoadingState message='Failed to load chats' />;
   }
@@ -156,16 +166,18 @@ const ChatList: React.FC = () => {
     );
   }
 
+  // ...existing code...
+
   return (
     <>
-      <Box height={4}>
-        {isLoading && (
-          <>
-            <LinearProgress color='primary' />
-          </>
-        )}
-      </Box>
+      <Box height={4}>{isLoading && <LinearProgress color='primary' />}</Box>
       <List>
+        {/* Gemini-bot always at the top */}
+        <GeminiBot
+          isSelected={isGeminiSelected}
+          onSelect={handleGeminiSelect}
+        />
+        {/* Render normal chats below */}
         {chatSummaries.map((summary) => (
           <ChatItem
             key={summary.summaryId}
