@@ -1,7 +1,7 @@
-import React from 'react';
 import { Box, Paper, TextField, IconButton } from '../../app/muiImports';
 import SendIcon from '@mui/icons-material/Send';
 import { useSendMessage } from './hooks/useSendMessage';
+import { useEffect } from 'react';
 
 interface ChatInputProps {
   chatId: string | null;
@@ -10,28 +10,18 @@ interface ChatInputProps {
 }
 
 const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
-  const [messageText, setMessageText] = React.useState('');
-  const messageInputRef = React.useRef<HTMLTextAreaElement>(null);
   const {
+    messageText,
+    setMessageText,
+    messageInputRef,
     sendMessageMutation,
     handleSendMessage,
-    handleKeyPress: defaultHandleKeyPress,
+    handleKeyPress,
   } = useSendMessage({ chatId, userId, onError: onSendError });
 
-  const handleSend = React.useCallback(() => {
-    if (!messageText.trim()) return;
-    setMessageText('');
-    handleSendMessage();
-  }, [messageText, handleSendMessage]);
-
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSend();
-    } else {
-      defaultHandleKeyPress(event);
-    }
-  };
+  useEffect(() => {
+    // Cleanup: remove debug log effect
+  }, []);
 
   return (
     <Paper
@@ -55,7 +45,7 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
         <IconButton
           size='large'
           color='primary'
-          onClick={handleSend}
+          onClick={handleSendMessage}
           disabled={!messageText.trim() || sendMessageMutation.isPending}
           sx={{ mb: 0.5 }}
         >
