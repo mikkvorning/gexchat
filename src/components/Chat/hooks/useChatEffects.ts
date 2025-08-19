@@ -29,9 +29,13 @@ export const useChatEffects = ({
     }
   }, [selectedChat, messageInputRef]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when a new message is received
+  const prevMessagesLength = useRef(messages.length);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    if (messages.length > prevMessagesLength.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessagesLength.current = messages.length;
   }, [messages]);
 
   return {
