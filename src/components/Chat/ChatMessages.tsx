@@ -1,4 +1,5 @@
 import { Box, Typography } from '../../app/muiImports';
+import MarkdownMessage from './MarkdownMessage';
 import { Message } from '../../types/types';
 import { useEffect, useRef, useState } from 'react';
 
@@ -86,7 +87,9 @@ const ChatMessages = ({
                 maxWidth: '70%',
               }}
             >
-              <Typography variant='body1'>{message.content}</Typography>
+              <MarkdownMessage isOwnMessage={isOwnMessage}>
+                {message.content}
+              </MarkdownMessage>
             </Box>
             <Typography variant='caption' color='text.secondary' m={1}>
               {new Date(message.timestamp).toLocaleTimeString()}
