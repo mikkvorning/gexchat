@@ -1,5 +1,33 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Message } from '../../../types/types';
+
+/**
+ * Shared hook for auto-scrolling to bottom when a new message is received.
+ * Returns a ref to be attached to the scroll anchor and an imperative scroll function.
+ *
+ * @param messages - The array of messages to watch for changes
+ * @param options - Optional scroll options (behavior: 'auto' | 'smooth')
+ */
+export const useScrollToBottomOnNewMessage = (
+  messages: { length: number },
+  options?: { behavior?: ScrollBehavior }
+) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLength = useRef(messages.length);
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = options?.behavior || 'smooth') => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    },
+    [options?.behavior]
+  );
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current) {
+      scrollToBottom();
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, scrollToBottom]);
+  return { messagesEndRef, scrollToBottom };
+};
 
 interface UseChatEffectsProps {
   selectedChat: string | null;

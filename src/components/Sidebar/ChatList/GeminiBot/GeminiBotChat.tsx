@@ -23,7 +23,6 @@ const GeminiBotChat: React.FC<{ userId: string }> = ({ userId }) => {
         currentUserId={userId}
         messagesEndRef={messagesEndRef}
       />
-      <Box ref={messagesEndRef} />
       {/* ChatInput is now Firestore-only; GeminiBotChat should use its own input or a local input implementation if needed. For now, render nothing or a placeholder. */}
       {/* TODO: Implement a local input for GeminiBotChat or reuse logic without using ChatInput. */}
       {/* <ChatInput chatId={GEMINI_BOT_ID} userId={userId} /> */}

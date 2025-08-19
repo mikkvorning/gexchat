@@ -24,7 +24,6 @@ const GeminiBotChatView: React.FC<{ userId: string }> = ({ userId }) => {
         currentUserId={userId}
         messagesEndRef={messagesEndRef}
       />
-      <Box ref={messagesEndRef} />
       <GeminiBotInput isLoading={isLoading} onSend={sendMessage} />
     </Box>
   );
