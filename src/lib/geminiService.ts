@@ -1,17 +1,13 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-if (!apiKey) {
-  throw new Error(
-    'Gemini API key is missing. Set NEXT_PUBLIC_GEMINI_API_KEY in your .env file.'
-  );
-}
-
-const genAI = new GoogleGenerativeAI(apiKey);
-
 export const generateGeminiText = async (prompt: string) => {
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to fetch Gemini response');
+  }
+  const data = await res.json();
+  return data.text;
 };
