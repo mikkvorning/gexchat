@@ -7,7 +7,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  UserCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Formik, FormikHelpers } from 'formik';
@@ -18,7 +17,6 @@ import * as Yup from 'yup';
 import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
 import { FormikErrors, FormikTouched } from 'formik';
 import { FormHelperText } from '@mui/material';
-import EmailVerification from '@/components/Auth/EmailVerification';
 
 interface FormFieldConfig {
   name: keyof FormValues;
@@ -172,40 +170,30 @@ const Login = () => {
     setIsSignup(!isSignup);
   };
 
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState('');
-  const [userCredential, setUserCredential] = useState<
-    UserCredential | undefined
-  >();
+  // Removed EmailVerification state
   const handleSubmit = async (
     values: FormValues,
     { setSubmitting, setErrors }: FormikHelpers<FormValues>
   ) => {
     try {
-      // Clear any previous auth errors
       setErrors({ authError: undefined });
-
       let userCredential;
       if (isSignup) {
-        // Create the user account first
         userCredential = await createUserWithEmailAndPassword(
           auth,
           values.email,
           values.password
         );
-
         const nickname = values.nickname || values.email.split('@')[0];
-
-        // Update Firebase Auth profile
-        await updateProfile(userCredential.user, {
-          displayName: nickname,
-        });
-
-        // Send verification email
+        await updateProfile(userCredential.user, { displayName: nickname });
         await sendEmailVerification(userCredential.user);
-        setUserCredential(userCredential);
-        setVerificationSent(true);
-        setVerificationEmail(values.email);
+        setUser(userCredential.user);
+        // Set cookies for session and verification status
+        document.cookie = `session=${userCredential.user.uid}; path=/;`;
+        document.cookie = `emailVerified=false; path=/;`;
+        // Store email for /verify page
+        localStorage.setItem('lastLoginEmail', values.email);
+        router.replace('/verify');
         setSubmitting(false);
         return;
       } else {
@@ -214,36 +202,22 @@ const Login = () => {
           values.email,
           values.password
         );
-
-        // Check if email is verified for login
         if (!userCredential.user.emailVerified) {
-          setVerificationEmail(values.email);
-          setUserCredential(userCredential);
-          setVerificationSent(true); // Show the verification UI instead of error message
+          setUser(userCredential.user);
+          document.cookie = `session=${userCredential.user.uid}; path=/;`;
+          document.cookie = `emailVerified=false; path=/;`;
+          // Store email for /verify page
+          localStorage.setItem('lastLoginEmail', values.email);
           try {
             await sendEmailVerification(userCredential.user);
-          } catch (err) {
-            const error = err as { code?: string };
-            console.error('Error sending verification email:', error);
-            setVerificationSent(false);
-            setUserCredential(undefined);
-            if (error.code === 'auth/too-many-requests') {
-              setErrors({
-                authError:
-                  'Please verify your email address to continue. A verification email was sent earlier. Check your spam folder or try again in a few minutes.',
-              });
-            } else {
-              setErrors({
-                authError:
-                  'Please verify your email address to continue. We encountered an error sending a new verification email. Please try again in a few minutes.',
-              });
-            }
+          } catch {
+            // Ignore errors here, UI will handle resend
           }
+          router.replace('/verify');
           setSubmitting(false);
           return;
         }
-
-        // Check if user profile exists, if not create it (happens after verification)
+        // Check if user profile exists, if not create it
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (!userDoc.exists()) {
           await initializeUserProfile(
@@ -255,23 +229,17 @@ const Login = () => {
         }
       }
       setUser(userCredential.user);
-
-      // Set the session cookie properly with the user's ID
       document.cookie = `session=${userCredential.user.uid}; path=/;`;
-
-      // Redirect to the home page using replace to prevent back navigation
+      document.cookie = `emailVerified=true; path=/;`;
       router.replace('/');
     } catch (error: unknown) {
       let errorMessage = 'Something went wrong. Please try again.';
-
-      // Handle Firebase Auth errors with user-friendly messages
       if (error && typeof error === 'object' && 'code' in error) {
         const firebaseError = error as { code: string; message: string };
         errorMessage = getFirebaseErrorMessage(firebaseError.code);
       } else if (error instanceof Error) {
-        errorMessage = error.message; // Fallback for non-Firebase errors
+        errorMessage = error.message;
       }
-
       setErrors({ authError: errorMessage });
     } finally {
       setSubmitting(false);
@@ -308,20 +276,7 @@ const Login = () => {
     await setDoc(doc(db, 'users', user.uid), userDoc);
   };
 
-  if (verificationSent) {
-    return (
-      <EmailVerification
-        email={verificationEmail}
-        userCredential={userCredential}
-        onBackToLogin={() => {
-          setVerificationSent(false);
-          setVerificationEmail('');
-          setUserCredential(undefined);
-          setIsSignup(false); // Reset to login mode
-        }}
-      />
-    );
-  }
+  // No EmailVerification UI here anymore
 
   return (
     <Box
