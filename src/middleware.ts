@@ -1,40 +1,42 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Helper to decode base64 JSON cookie
-function parseSessionCookie(cookie: string | undefined) {
-  if (!cookie) return null;
-  try {
-    // If you store more than just UID, parse here
-    // For now, assume cookie is UID only
-    return { uid: cookie };
-  } catch {
-    return null;
-  }
-}
-
-const middleware = (request: NextRequest) => {
+const middleware = async (request: NextRequest) => {
   const sessionCookie = request.cookies.get('session')?.value;
-  const session = parseSessionCookie(sessionCookie);
-  const isAuthenticated = !!session;
-  const emailVerified = request.cookies.get('emailVerified')?.value;
+  const emailVerifiedCookie = request.cookies.get('emailVerified')?.value;
+
+  const isAuthenticated = !!sessionCookie;
+  const emailVerified = emailVerifiedCookie === 'true';
+
   const isOnLoginPage = request.nextUrl.pathname.startsWith('/login');
   const isOnVerifyPage = request.nextUrl.pathname.startsWith('/verify');
+  const isOnLogoutPage = request.nextUrl.pathname.startsWith('/logout');
+  const isOnApiRoute = request.nextUrl.pathname.startsWith('/api');
 
-  // Allow login and verify pages for unauthenticated users
+  // Allow API routes to handle their own auth
+  if (isOnApiRoute) {
+    return NextResponse.next();
+  }
+
+  // Allow logout page for all users
+  if (isOnLogoutPage) {
+    return NextResponse.next();
+  }
+
+  // Redirect unauthenticated users to login
   if (!isAuthenticated && !isOnLoginPage && !isOnVerifyPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // If authenticated and verified, prevent access to login and verify pages
-  if (isAuthenticated && emailVerified === 'true') {
+  // Redirect authenticated and verified users away from login/verify pages
+  if (isAuthenticated && emailVerified) {
     if (isOnLoginPage || isOnVerifyPage) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  // If authenticated but not verified, only allow verify page
-  if (isAuthenticated && emailVerified === 'false') {
+  // Redirect authenticated but unverified users to verify page
+  if (isAuthenticated && !emailVerified) {
     if (!isOnVerifyPage) {
       return NextResponse.redirect(new URL('/verify', request.url));
     }

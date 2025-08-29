@@ -17,14 +17,6 @@ import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()!.split(';').shift() || null;
-  return null;
-}
-
 const VerifyPage = () => {
   const router = useRouter();
   const [formError, setFormError] = useState<string | undefined>();
@@ -33,9 +25,25 @@ const VerifyPage = () => {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get user info from cookies
-    const session = getCookie('session');
-    const emailVerified = getCookie('emailVerified');
+    // Since we're using httpOnly cookies, we need to check via API
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/verify-session');
+        const data = await response.json();
+
+        if (response.ok && data.user) {
+          if (data.user.emailVerified) {
+            router.replace('/');
+          } else {
+            setChecked(true);
+          }
+        } else {
+          router.replace('/login');
+        }
+      } catch {
+        router.replace('/login');
+      }
+    };
 
     // Get email from localStorage (set during login)
     let userEmail = null;
@@ -44,53 +52,113 @@ const VerifyPage = () => {
     } catch {}
     setEmail(userEmail);
 
-    // Only redirect if we've checked and conditions are not met
-    if (!session || emailVerified !== 'false') {
-      // Clear any stale data and redirect
-      try {
-        localStorage.removeItem('lastLoginEmail');
-      } catch {}
-      router.replace('/login');
-    } else {
-      setChecked(true);
-    }
+    checkSession();
   }, [router]);
 
   const handleResendVerification = async () => {
-    if (!auth.currentUser) {
-      // Firebase Auth user is lost, clear cookies and redirect to login
-      document.cookie =
-        'session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      document.cookie =
-        'emailVerified=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      try {
-        localStorage.removeItem('lastLoginEmail');
-      } catch {}
-      router.replace('/login');
-      return;
-    }
-
     setIsResending(true);
+
     try {
+      // Step 1: Server-side validation via API
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Session invalid, redirect to login
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+          } catch {}
+          try {
+            localStorage.removeItem('lastLoginEmail');
+          } catch {}
+          router.replace('/login');
+          return;
+        } else if (response.status === 400) {
+          setFormError('Email is already verified.');
+          return;
+        } else {
+          throw new Error(data.error || 'Server validation failed');
+        }
+      }
+
+      // Step 2: Synchronization check between server and client auth states
+      const serverUser = data.user;
+
+      // Check if client-side auth state exists
+      if (!auth.currentUser) {
+        setFormError('Please log in again to resend verification email.');
+
+        // Clean up and redirect after a delay so user can read the message
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2000);
+        return;
+      }
+
+      // Step 3: Verify synchronization between server and client states
+      if (auth.currentUser.uid !== serverUser.uid) {
+        setFormError('Authentication state mismatch. Please log in again.');
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2000);
+        return;
+      }
+
+      if (auth.currentUser.email !== serverUser.email) {
+        setFormError('Authentication state mismatch. Please log in again.');
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2000);
+        return;
+      }
+
+      // Step 4: States are synchronized, use Firebase client to send verification email
       await sendEmailVerification(auth.currentUser);
+
       setFormError(
         'Verification email resent. Please check your inbox and spam folder.'
       );
     } catch (err) {
-      const error = err as { code?: string };
-      console.error('Error resending verification:', error);
+      const error = err as { code?: string; message?: string };
 
-      setFormError(
-        error.code === 'auth/too-many-requests'
-          ? 'Please wait a few minutes before requesting another verification email.'
-          : 'Failed to resend verification email. Please try again later.'
-      );
+      // Handle specific Firebase errors
+      if (error.code === 'auth/too-many-requests') {
+        setFormError(
+          'Please wait a few minutes before requesting another verification email.'
+        );
+      } else if (error.code === 'auth/network-request-failed') {
+        setFormError(
+          'Network error. Please check your connection and try again.'
+        );
+      } else {
+        setFormError(
+          error.message ||
+            'Failed to resend verification email. Please try again later.'
+        );
+      }
     } finally {
       setIsResending(false);
     }
   };
 
-  if (!checked) return null;
+  if (!checked) {
+    return (
+      <Box
+        sx={{
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -158,7 +226,6 @@ const VerifyPage = () => {
         <CardActions sx={{ justifyContent: 'space-around', py: 3 }}>
           <Button
             variant='outlined'
-            size='small'
             onClick={() => {
               router.push('/logout');
             }}
@@ -167,7 +234,6 @@ const VerifyPage = () => {
           </Button>
           <Button
             variant='text'
-            size='small'
             onClick={handleResendVerification}
             disabled={isResending}
           >

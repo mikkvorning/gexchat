@@ -92,7 +92,6 @@ export const PrivacySettings = () => {
             color='error'
             onClick={() => {
               // TODO: Implement account deletion
-              console.log('Delete account clicked');
             }}
           >
             Delete Account

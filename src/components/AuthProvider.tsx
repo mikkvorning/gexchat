@@ -20,17 +20,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(undefined);
-  const value = { user, loading, error, setUser };
 
   const [authUser, authLoading, authError] = useAuthState(auth);
 
+  // Validate that Firebase auth matches server session
   useEffect(() => {
-    setUser(authUser ?? null);
-    setLoading(authLoading);
-    setError(authError);
+    const validateAuthState = async () => {
+      if (authUser) {
+        try {
+          // Check if server session is valid
+          const response = await fetch('/api/auth/verify-session');
+
+          if (response.ok) {
+            const data = await response.json();
+            // Only accept Firebase user if server confirms the session
+            if (data.user?.uid === authUser.uid) {
+              setUser(authUser);
+            } else {
+              // Session mismatch - someone might be spoofing
+              await auth.signOut();
+              setUser(null);
+            }
+          } else {
+            // Server session invalid - clear client auth
+            await auth.signOut();
+            setUser(null);
+          }
+        } catch {
+          setUser(null);
+        }
+      } else {
+        // No Firebase user
+        setUser(null);
+      }
+
+      setLoading(authLoading);
+      setError(authError);
+    };
+
+    validateAuthState();
   }, [authUser, authLoading, authError]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, error, setUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => useContext(AuthContext);

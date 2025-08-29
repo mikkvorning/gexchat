@@ -11,13 +11,15 @@ export const useLogout = () => {
 
   const logout = async () => {
     try {
+      // Call the secure logout API
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
       // Sign out of Firebase and clear auth context
       await signOut(auth);
       setUser(null);
 
-      // Clear session cookie and redirect
-      document.cookie =
-        'session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       router.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);

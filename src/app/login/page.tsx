@@ -1,21 +1,13 @@
 'use client';
 
 import { useAuth } from '@/components/AuthProvider';
-import { auth, db } from '@/lib/firebase';
-import type { CurrentUser } from '@/types/types';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Formik, FormikHelpers } from 'formik';
-import { User, sendEmailVerification } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { Formik, FormikHelpers, FormikErrors, FormikTouched } from 'formik';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import * as Yup from 'yup';
 import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
-import { FormikErrors, FormikTouched } from 'formik';
 import { FormHelperText } from '@mui/material';
 
 interface FormFieldConfig {
@@ -130,7 +122,11 @@ const signupSchema = loginSchema.shape({
 });
 
 // Helper function to convert Firebase error codes to user-friendly messages
-const getFirebaseErrorMessage = (errorCode: string): string => {
+const getFirebaseErrorMessage = (errorMessage: string): string => {
+  // Extract Firebase error code from messages like "Firebase: Error (auth/invalid-credential)."
+  const firebaseCodeMatch = errorMessage.match(/auth\/[\w-]+/);
+  const errorCode = firebaseCodeMatch ? firebaseCodeMatch[0] : errorMessage;
+
   // prettier-ignore
   const errorMessages: Record<string, string> = {
     'auth/user-not-found': 'No account found with this email address. Please check your email or sign up.',
@@ -139,15 +135,14 @@ const getFirebaseErrorMessage = (errorCode: string): string => {
     'auth/user-disabled': 'This account has been disabled. Please contact support.',
     'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
     'auth/operation-not-allowed': 'Email/password sign-in is currently disabled. Please contact support.',
-    'auth/invalid-credential': 'Invalid email or password. Please check your credentials.',
+    'auth/invalid-credential': 'Invalid email or password. Please check your credentials and try again.',
     'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
     'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
   };
 
   return (
-    errorMessages[errorCode] ??
-    'Something went wrong. Please try again or contact support if the problem continues.'
+    errorMessages[errorCode] ?? errorMessage // Return original message if no mapping found
   );
 };
 
@@ -177,106 +172,79 @@ const Login = () => {
   ) => {
     try {
       setErrors({ authError: undefined });
-      let userCredential;
+
+      // Call the secure API route
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          isSignup: isSignup,
+          nickname: values.nickname,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Authentication failed');
+      }
+
+      const user = data.user;
+      setUser(user);
+
       if (isSignup) {
-        userCredential = await createUserWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password
-        );
-        const nickname = values.nickname || values.email.split('@')[0];
-        await updateProfile(userCredential.user, { displayName: nickname });
-        await sendEmailVerification(userCredential.user);
-        setUser(userCredential.user);
-        // Set cookies for session and verification status
-        document.cookie = `session=${userCredential.user.uid}; path=/;`;
-        document.cookie = `emailVerified=false; path=/;`;
+        // For signup, store email and redirect to verify page
+        localStorage.setItem('lastLoginEmail', values.email);
+        router.replace('/verify');
+        setSubmitting(false);
+        return;
+      }
+
+      if (!user.emailVerified) {
         // Store email for /verify page
         localStorage.setItem('lastLoginEmail', values.email);
         router.replace('/verify');
         setSubmitting(false);
         return;
-      } else {
-        userCredential = await signInWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password
-        );
-        if (!userCredential.user.emailVerified) {
-          setUser(userCredential.user);
-          document.cookie = `session=${userCredential.user.uid}; path=/;`;
-          document.cookie = `emailVerified=false; path=/;`;
-          // Store email for /verify page
-          localStorage.setItem('lastLoginEmail', values.email);
-          try {
-            await sendEmailVerification(userCredential.user);
-          } catch {
-            // Ignore errors here, UI will handle resend
-          }
-          router.replace('/verify');
-          setSubmitting(false);
-          return;
-        }
-        // Check if user profile exists, if not create it
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        if (!userDoc.exists()) {
-          await initializeUserProfile(
-            userCredential.user,
-            userCredential.user.displayName ||
-              userCredential.user.email?.split('@')[0] ||
-              ''
-          );
-        }
       }
-      setUser(userCredential.user);
-      document.cookie = `session=${userCredential.user.uid}; path=/;`;
-      document.cookie = `emailVerified=true; path=/;`;
+
+      // For verified users, establish client-side Firebase auth for Firestore access
+      // This is secure because:
+      // 1. Server already validated credentials
+      // 2. Only happens for email-verified users
+      // 3. Uses the same credentials that were server-validated
+      try {
+        await signInWithEmailAndPassword(auth, values.email, values.password);
+
+        // Force token refresh to ensure latest email_verified claim
+        if (auth.currentUser) {
+          await auth.currentUser.getIdToken(true);
+        }
+      } catch {
+        // Continue anyway since server-side auth succeeded
+        // User will still be logged in via cookies
+      }
+
       router.replace('/');
     } catch (error: unknown) {
       let errorMessage = 'Something went wrong. Please try again.';
-      if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string; message: string };
-        errorMessage = getFirebaseErrorMessage(firebaseError.code);
-      } else if (error instanceof Error) {
+
+      if (error instanceof Error) {
         errorMessage = error.message;
+      } else if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message: string };
+        errorMessage = firebaseError.code;
       }
+
       setErrors({ authError: errorMessage });
     } finally {
       setSubmitting(false);
     }
   };
-
-  // Helper function to create a new user profile in Firestore
-  const initializeUserProfile = async (user: User, nickname: string) => {
-    const userDoc: CurrentUser = {
-      id: user.uid,
-      email: user.email || '',
-      displayName: nickname,
-      username: nickname.toLowerCase(),
-      avatarUrl: '',
-      status: 'online',
-      createdAt: new Date(),
-      chats: [],
-      privacy: {
-        showStatus: true,
-        showLastSeen: true,
-        showActivity: true,
-      },
-      notifications: {
-        enabled: true,
-        sound: true,
-        muteUntil: null,
-      },
-      friends: {
-        list: [],
-        pending: [],
-      },
-      blocked: [],
-    };
-    await setDoc(doc(db, 'users', user.uid), userDoc);
-  };
-
-  // No EmailVerification UI here anymore
 
   return (
     <Box
@@ -373,7 +341,7 @@ const Login = () => {
               {errors.authError && (
                 <Box my={2} textAlign='center'>
                   <Typography color='error' variant='body2'>
-                    {errors.authError}
+                    {getFirebaseErrorMessage(errors.authError)}
                   </Typography>
                 </Box>
               )}

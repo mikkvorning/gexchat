@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  ReactNode,
-  useState,
-  useEffect,
-} from 'react';
+import React, { createContext, useContext, ReactNode, useState } from 'react';
 import { BaseUser } from '../types/types';
 
 interface AppContextType {
@@ -43,10 +37,6 @@ export const AppProvider = (props: Props) => {
   const [searchValue, setSearchValue] = useState('');
   const filteredContacts = filterContacts(props.contacts, searchValue);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
-
-  useEffect(() => {
-    console.log(`Selected chat changed: ${selectedChat}`);
-  }, [selectedChat]);
 
   return (
     <AppContext.Provider
