@@ -1,14 +1,14 @@
 import SettingsIcon from '@mui/icons-material/Settings';
 import React, { useState } from 'react';
 import { Box, Button, IconButton, Paper } from '../../app/muiImports';
-import { useAuth } from '../AuthProvider';
+import { useAuthContext } from '../AuthProvider';
 import { Settings } from '../Settings/Settings';
 import ChatList from './ChatList/ChatList';
 import ChatSearch from './ChatSearch/ChatSearch';
 
 const Sidebar: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { user } = useAuth();
+  const { user } = useAuthContext();
 
   return (
     <>

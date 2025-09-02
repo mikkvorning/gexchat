@@ -1,5 +1,5 @@
 import { Box, Typography } from '../../app/muiImports';
-import { useAuth } from '../AuthProvider';
+import { useAuthContext } from '../AuthProvider';
 import { useAppContext } from '../AppProvider';
 import { useChat } from './hooks/useChat';
 import { useChatEffects } from './hooks/useChatEffects';
@@ -11,7 +11,7 @@ import ChatInput from './ChatInput';
 import ErrorRibbon from './ErrorRibbon';
 
 const Chat = () => {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { selectedChat } = useAppContext();
   const { chat, messages, isLoading, error } = useChat(selectedChat);
   const { messagesEndRef } = useChatEffects({

@@ -1,15 +1,15 @@
 'use client';
 
-import { useAuth } from '@/components/AuthProvider';
+import { useAuthContext } from '@/components/AuthProvider';
 import { Box, Button, TextField, Typography } from '@/app/muiImports';
 import { useState } from 'react';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getFirebaseErrorMessage } from '@/utils/firebaseErrors';
+import { getFirebaseErrorMessage } from '@/utils/errorMessages';
 
 export const ProfileSettings = () => {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

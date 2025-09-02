@@ -1,5 +1,5 @@
 'use client';
-import { useAuth } from '@/components/AuthProvider';
+import { useAuthContext } from '@/components/AuthProvider';
 import Sidebar from '@/components/Sidebar/Sidebar';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -13,7 +13,7 @@ import { useRecentMessages } from '@/hooks/useRecentMessages';
 // Renders GeminiBotChatView if Gemini-bot is selected, otherwise normal Chat
 const MainChatSwitcher = () => {
   const { selectedChat } = useAppContext();
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   if (selectedChat === 'gemini-bot' && user?.uid) {
     return <GeminiBotChatView userId={user.uid} />;
   }
@@ -21,7 +21,7 @@ const MainChatSwitcher = () => {
 };
 
 const Home = () => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthContext();
   const router = useRouter();
 
   // Set up global chat listener for real-time updates across all chats

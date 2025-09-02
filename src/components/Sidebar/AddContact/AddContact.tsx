@@ -15,7 +15,7 @@ import {
   Box,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useAuth } from '@/components/AuthProvider';
+import { useAuthContext } from '@/components/AuthProvider';
 import { useAppContext } from '@/components/AppProvider';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { useCreateChat } from '../hooks/useCreateChat';
@@ -27,7 +27,7 @@ interface AddContactProps {
 }
 
 const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { setSelectedChat } = useAppContext();
 
   // Memoize user ID to prevent unnecessary hook re-renders

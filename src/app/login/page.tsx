@@ -1,12 +1,8 @@
 'use client';
 
-import { useAuth } from '@/components/AuthProvider';
-import { auth } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Formik, FormikHelpers } from 'formik';
-import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { Box, Button, Link, Paper, Typography } from '../muiImports';
+import { Box, Button, Link, Paper, Typography, Alert } from '../muiImports';
 import { FormField } from './FormField';
 import {
   formFields,
@@ -15,14 +11,15 @@ import {
   getInitialValues,
   FormValues,
 } from './loginFormConfig';
-import { getFirebaseErrorMessage } from '@/utils/firebaseErrors';
-
+import { getFirebaseErrorMessage } from '@/utils/errorMessages';
+import { useAuth } from './useAuth';
 const Login = () => {
-  const router = useRouter();
-  const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
   const initialValues = getInitialValues();
+
+  // Destructure React Query state
+  const { mutate, isPending, error } = useAuth();
 
   const handleFormSwitch = () => {
     if (formikRef.current) {
@@ -31,85 +28,13 @@ const Login = () => {
     setIsSignup(!isSignup);
   };
 
-  // Removed EmailVerification state
-  const handleSubmit = async (
-    values: FormValues,
-    { setSubmitting, setErrors }: FormikHelpers<FormValues>
-  ) => {
-    try {
-      setErrors({ authError: undefined });
-
-      // Call the secure API route
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: values.email,
-          password: values.password,
-          isSignup: isSignup,
-          nickname: values.nickname,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || 'Authentication failed');
-      }
-
-      const user = data.user;
-      setUser(user);
-
-      if (isSignup) {
-        // For signup, store email and redirect to verify page
-        localStorage.setItem('lastLoginEmail', values.email);
-        router.replace('/verify');
-        setSubmitting(false);
-        return;
-      }
-
-      if (!user.emailVerified) {
-        // Store email for /verify page
-        localStorage.setItem('lastLoginEmail', values.email);
-        router.replace('/verify');
-        setSubmitting(false);
-        return;
-      }
-
-      // For verified users, establish client-side Firebase auth for Firestore access
-      // This is secure because:
-      // 1. Server already validated credentials
-      // 2. Only happens for email-verified users
-      // 3. Uses the same credentials that were server-validated
-      try {
-        await signInWithEmailAndPassword(auth, values.email, values.password);
-
-        // Force token refresh to ensure latest email_verified claim
-        if (auth.currentUser) {
-          await auth.currentUser.getIdToken(true);
-        }
-      } catch {
-        // Continue anyway since server-side auth succeeded
-        // User will still be logged in via cookies
-      }
-
-      router.replace('/');
-    } catch (error: unknown) {
-      let errorMessage = 'Something went wrong. Please try again.';
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string; message: string };
-        errorMessage = firebaseError.code;
-      }
-
-      setErrors({ authError: errorMessage });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleSubmit = (values: FormValues) => {
+    mutate({
+      email: values.email,
+      password: values.password,
+      isSignup: isSignup,
+      nickname: values.nickname,
+    });
   };
 
   return (
@@ -150,7 +75,6 @@ const Login = () => {
           {({
             errors,
             touched,
-            isSubmitting,
             handleChange,
             handleBlur,
             values,
@@ -183,7 +107,7 @@ const Login = () => {
                     touched={touched}
                     handleChange={handleChange}
                     handleBlur={handleBlur}
-                    isSubmitting={isSubmitting}
+                    isSubmitting={isPending} // Use React Query state
                   />
                 ))}
 
@@ -192,10 +116,10 @@ const Login = () => {
                 type='submit'
                 variant='contained'
                 color='primary'
-                disabled={isSubmitting}
+                disabled={isPending} // Use React Query state
                 sx={{ mt: 2 }}
               >
-                {isSubmitting
+                {isPending // Use React Query state
                   ? isSignup
                     ? 'Signing up...'
                     : 'Signing in...'
@@ -203,13 +127,11 @@ const Login = () => {
                   ? 'Sign up'
                   : 'Sign in'}
               </Button>
-
-              {errors.authError && (
-                <Box my={2} textAlign='center'>
-                  <Typography color='error' variant='body2'>
-                    {getFirebaseErrorMessage(errors.authError)}
-                  </Typography>
-                </Box>
+              {/* Show auth error using React Query state */}
+              {error && (
+                <Alert severity='error' sx={{ my: 2 }}>
+                  {getFirebaseErrorMessage(error)}
+                </Alert>
               )}
             </Box>
           )}

@@ -12,7 +12,7 @@ import {
 } from '../../../app/muiImports';
 import { ChatSummary } from '../../../types/types';
 import { useAppContext } from '../../AppProvider';
-import { useAuth } from '../../AuthProvider';
+import { useAuthContext } from '../../AuthProvider';
 import { useChatList } from '../hooks/useChatList';
 import {
   formatLastMessage,
@@ -121,7 +121,7 @@ const ChatItem = React.memo(
 ChatItem.displayName = 'ChatItem';
 
 const ChatList: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { setSelectedChat, selectedChat } = useAppContext();
 
   // Memoize user ID to prevent unnecessary hook re-renders
