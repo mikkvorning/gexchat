@@ -6,16 +6,19 @@ import { useState } from 'react';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getFirebaseErrorMessage } from '@/utils/firebaseErrors';
 
 export const ProfileSettings = () => {
   const { user } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!user) return;
 
     setSaving(true);
+    setError(null);
     try {
       // Update Firebase Auth profile
       await updateProfile(user, {
@@ -26,8 +29,18 @@ export const ProfileSettings = () => {
       await updateDoc(doc(db, 'users', user.uid), {
         displayName,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error);
+      let errorMessage = 'Something went wrong. Please try again.';
+
+      if (error instanceof Error) {
+        errorMessage = getFirebaseErrorMessage(error.message);
+      } else if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string };
+        errorMessage = getFirebaseErrorMessage(firebaseError.code);
+      }
+
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -53,6 +66,11 @@ export const ProfileSettings = () => {
           onChange={(e) => setDisplayName(e.target.value)}
           sx={{ mb: 3 }}
         />
+        {error && (
+          <Typography color='error' variant='body2' sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
         <Button
           variant='contained'
           onClick={handleSave}
