@@ -1,11 +1,13 @@
-// Helper function to convert Firebase error codes to user-friendly messages
-export const getFirebaseErrorMessage = (errorMessage: string): string => {
-  // Extract Firebase error code from messages like "Firebase: Error (auth/invalid-credential)."
-  const firebaseCodeMatch = errorMessage.match(/auth\/[\w-]+/);
-  const errorCode = firebaseCodeMatch ? firebaseCodeMatch[0] : errorMessage;
+import { FirebaseError } from 'firebase/app';
 
-  // prettier-ignore
-  const errorMessages: Record<string, string> = {
+// Helper function to convert Firebase error codes to user-friendly messages
+export const getFirebaseErrorMessage = (error: FirebaseError | Error | unknown): string => {
+	// Extract error code - Firebase errors have a 'code' property
+	const code = (error as FirebaseError)?.code || 'unknown-error';
+
+	// prettier-ignore
+	const errorMessages: Record<string, string> = {
+		// Auth errors
 		'auth/user-not-found': 'No account found with this email address. Please check your email or sign up.',
 		'auth/wrong-password': 'Incorrect password. Please try again.',
 		'auth/invalid-email': 'Please enter a valid email address.',
@@ -18,9 +20,12 @@ export const getFirebaseErrorMessage = (errorMessage: string): string => {
 		'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
 		'auth/weak-password': 'Password is too weak. Please choose a stronger password.',
 		'auth/requires-recent-login': 'This action requires recent authentication. Please log in again.',
+		
+		// Firestore errors
+		'firestore/permission-denied': 'You do not have permission to access this data.',
+		'firestore/unavailable': 'The service is currently unavailable. Please try again later.',
+		'firestore/deadline-exceeded': 'The operation took too long. Please try again.',
 	};
 
-  return (
-    errorMessages[errorCode] ?? errorMessage // Return original message if no mapping found
-  );
+	return errorMessages[code] ?? 'Something went wrong. Please try again.';
 };
