@@ -3,160 +3,26 @@
 import { useAuth } from '@/components/AuthProvider';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { Formik, FormikHelpers, FormikErrors, FormikTouched } from 'formik';
+import { Formik, FormikHelpers } from 'formik';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import * as Yup from 'yup';
-import { Box, Button, Link, Paper, TextField, Typography } from '../muiImports';
-import { FormHelperText } from '@mui/material';
-
-interface FormFieldConfig {
-  name: keyof FormValues;
-  label: string;
-  type?: string;
-  required?: boolean;
-  showOnSignup?: boolean; // true = signup only, false = login only, undefined = both
-}
-
-const formFields: FormFieldConfig[] = [
-  {
-    name: 'nickname',
-    label: 'Nickname',
-    required: true,
-    showOnSignup: true, // signup only
-  },
-  {
-    name: 'email',
-    label: 'Email',
-    type: 'email',
-    required: true,
-    // shows on both (undefined)
-  },
-  {
-    name: 'password',
-    label: 'Password',
-    type: 'password',
-    required: true,
-    // shows on both (undefined)
-  },
-  {
-    name: 'confirmPassword',
-    label: 'Confirm Password',
-    type: 'password',
-    required: true,
-    showOnSignup: true, // signup only
-  },
-];
-
-interface FormFieldProps {
-  field: FormFieldConfig;
-  values: FormValues;
-  errors: FormikErrors<FormValues>;
-  touched: FormikTouched<FormValues>;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
-  isSubmitting: boolean;
-}
-
-const FormField: React.FC<FormFieldProps> = ({
-  field,
-  values,
-  errors,
-  touched,
-  handleChange,
-  handleBlur,
-  isSubmitting,
-}) => (
-  <Box height={100}>
-    <TextField
-      fullWidth
-      id={field.name}
-      name={field.name}
-      label={field.label}
-      type={field.type || 'text'}
-      value={values[field.name] || ''}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      disabled={isSubmitting}
-      error={touched[field.name] && Boolean(errors[field.name])}
-      helperText={touched[field.name]}
-      margin='normal'
-    />
-    {touched[field.name] && (
-      <Box ml={2}>
-        <FormHelperText>{errors[field.name]}</FormHelperText>
-      </Box>
-    )}
-  </Box>
-);
-
-interface FormValues {
-  email: string;
-  password: string;
-  confirmPassword?: string;
-  nickname?: string;
-  authError?: string;
-}
-
-const loginSchema = Yup.object().shape({
-  email: Yup.string()
-    .email('Invalid email address')
-    .required('Email is required'),
-  password: Yup.string()
-    .min(8, 'Password must be at least 8 characters')
-    .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .matches(/[0-9]/, 'Password must contain at least one number')
-    .required('Password is required'),
-  authError: Yup.string().optional(),
-});
-
-const signupSchema = loginSchema.shape({
-  confirmPassword: Yup.string().oneOf(
-    [Yup.ref('password')],
-    'Passwords must match'
-  ),
-  nickname: Yup.string()
-    .required('Nickname is required')
-    .max(30, 'Nickname may not exceed 30 characters'),
-});
-
-// Helper function to convert Firebase error codes to user-friendly messages
-const getFirebaseErrorMessage = (errorMessage: string): string => {
-  // Extract Firebase error code from messages like "Firebase: Error (auth/invalid-credential)."
-  const firebaseCodeMatch = errorMessage.match(/auth\/[\w-]+/);
-  const errorCode = firebaseCodeMatch ? firebaseCodeMatch[0] : errorMessage;
-
-  // prettier-ignore
-  const errorMessages: Record<string, string> = {
-    'auth/user-not-found': 'No account found with this email address. Please check your email or sign up.',
-    'auth/wrong-password': 'Incorrect password. Please try again.',
-    'auth/invalid-email': 'Please enter a valid email address.',
-    'auth/user-disabled': 'This account has been disabled. Please contact support.',
-    'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
-    'auth/operation-not-allowed': 'Email/password sign-in is currently disabled. Please contact support.',
-    'auth/invalid-credential': 'Invalid email or password. Please check your credentials and try again.',
-    'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
-    'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
-    'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
-  };
-
-  return (
-    errorMessages[errorCode] ?? errorMessage // Return original message if no mapping found
-  );
-};
+import { Box, Button, Link, Paper, Typography } from '../muiImports';
+import { FormField } from './FormField';
+import {
+  formFields,
+  loginSchema,
+  signupSchema,
+  getInitialValues,
+  FormValues,
+} from './loginFormConfig';
+import { getFirebaseErrorMessage } from '@/utils/firebaseErrors';
 
 const Login = () => {
   const router = useRouter();
   const { setUser } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const formikRef = useRef<FormikHelpers<FormValues>>(null);
-  const initialValues: FormValues = {
-    email: '',
-    password: '',
-    authError: undefined,
-    ...(isSignup ? { confirmPassword: '', nickname: '' } : {}),
-  };
+  const initialValues = getInitialValues();
 
   const handleFormSwitch = () => {
     if (formikRef.current) {
