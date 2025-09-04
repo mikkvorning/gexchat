@@ -29,6 +29,7 @@ export const useRecentMessages = (userId: string | undefined) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    // Early return if no userId - this prevents listeners from being set up
     if (!userId) return;
 
     // Listen to user's chat list to know which chats to monitor

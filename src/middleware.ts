@@ -10,16 +10,10 @@ const middleware = async (request: NextRequest) => {
 
   const isOnLoginPage = request.nextUrl.pathname.startsWith('/login');
   const isOnVerifyPage = request.nextUrl.pathname.startsWith('/verify');
-  const isOnLogoutPage = request.nextUrl.pathname.startsWith('/logout');
   const isOnApiRoute = request.nextUrl.pathname.startsWith('/api');
 
   // Allow API routes to handle their own auth
   if (isOnApiRoute) {
-    return NextResponse.next();
-  }
-
-  // Allow logout page for all users
-  if (isOnLogoutPage) {
     return NextResponse.next();
   }
 

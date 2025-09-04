@@ -1,31 +1,35 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
 import { useAuthContext } from '@/components/AuthProvider';
 import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { authService } from '@/services/authService';
 
 export const useLogout = () => {
   const router = useRouter();
   const { setUser } = useAuthContext();
+  const queryClient = useQueryClient();
 
-  const logout = async () => {
-    try {
-      // Call the secure logout API
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      // Sign out of Firebase and clear auth context
-      await signOut(auth);
+  return useMutation({
+    mutationFn: async () => {
+      // Clear user context first to trigger cleanup of listeners
       setUser(null);
 
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      router.replace('/login');
-    }
-  };
+      // Clear all React Query cache to remove user-specific data
+      queryClient.clear();
 
-  return { logout };
+      // Call the secure logout API
+      await authService.logout();
+
+      // Sign out of Firebase
+      await signOut(auth);
+    },
+    retry: false,
+    onSuccess: () => {
+      router.replace('/login');
+    },
+    // Let React Query handle errors - they'll be displayed in UI
+  });
 };

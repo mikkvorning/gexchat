@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-interface AuthRequest {
+export interface AuthRequest {
   email: string;
   password: string;
   isSignup: boolean;
@@ -48,5 +48,9 @@ export const authService = {
   authenticate: async (authRequest: AuthRequest): Promise<AuthResponse> => {
     const response = await api.post('/auth/login', authRequest);
     return response.data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
   },
 };

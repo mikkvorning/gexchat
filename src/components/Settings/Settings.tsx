@@ -93,7 +93,7 @@ export const Settings = ({ open, onClose }: SettingsProps) => {
           </List>
           {/* Log out button */}
           <Box sx={{ p: 2 }}>
-            <LogoutButton fullWidth />
+            <LogoutButton fullWidth showError />
           </Box>
         </Box>
 

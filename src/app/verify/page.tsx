@@ -16,9 +16,11 @@ import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useLogout } from '@/hooks/useLogout';
 
 const VerifyPage = () => {
   const router = useRouter();
+  const { mutate: logout } = useLogout();
   const [formError, setFormError] = useState<string | undefined>();
   const [isResending, setIsResending] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -227,7 +229,7 @@ const VerifyPage = () => {
           <Button
             variant='outlined'
             onClick={() => {
-              router.push('/logout');
+              logout(); // This will handle logout and redirect to login
             }}
           >
             Back to Login

@@ -1,16 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/authService';
+import { authService, AuthRequest } from '@/services/authService';
 import { useAuthContext } from '@/components/AuthProvider';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-
-interface LoginRequest {
-  email: string;
-  password: string;
-  isSignup: boolean;
-  nickname?: string;
-}
 
 export const useAuth = () => {
   const router = useRouter();
@@ -19,7 +12,7 @@ export const useAuth = () => {
   return useMutation({
     mutationFn: authService.authenticate,
     retry: false,
-    onSuccess: async (data, variables: LoginRequest) => {
+    onSuccess: async (data, variables: AuthRequest) => {
       // Handle the complete login process
       if (variables.isSignup || !data.user.emailVerified) {
         localStorage.setItem('lastLoginEmail', variables.email);
