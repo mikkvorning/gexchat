@@ -21,38 +21,22 @@ export const useAuth = () => {
     retry: false,
     onSuccess: async (data, variables: LoginRequest) => {
       // Handle the complete login process
-      if (variables.isSignup) {
-        localStorage.setItem('lastLoginEmail', variables.email);
-        router.replace('/verify');
-        return;
-      }
-
-      if (!data.user.emailVerified) {
+      if (variables.isSignup || !data.user.emailVerified) {
         localStorage.setItem('lastLoginEmail', variables.email);
         router.replace('/verify');
         return;
       }
 
       // Complete the login: sync client-side Firebase auth state
-      try {
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          variables.email,
-          variables.password
-        );
-        setUser(userCredential.user);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        variables.email,
+        variables.password
+      );
+      setUser(userCredential.user);
 
-        // Force token refresh to ensure latest email_verified claim
-        if (auth.currentUser) {
-          await auth.currentUser.getIdToken(true);
-        }
-      } catch (error) {
-        // Continue anyway since server-side auth succeeded
-        console.warn(
-          'Client-side Firebase sync failed, but server auth succeeded:',
-          error
-        );
-      }
+      // Force token refresh to ensure latest email_verified claim
+      if (auth.currentUser) await auth.currentUser.getIdToken(true);
 
       router.replace('/');
     },
