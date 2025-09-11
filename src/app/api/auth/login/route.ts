@@ -6,6 +6,7 @@ import {
   sendEmailVerification,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { handleAuthError } from '@/lib/apiUtils';
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -66,18 +67,7 @@ export const POST = async (request: NextRequest) => {
     });
 
     return response;
-  } catch (error: unknown) {
-    console.error('Login error:', error);
-
-    const firebaseError = error as { code?: string; message?: string };
-
-    return NextResponse.json(
-      {
-        error: firebaseError.code || 'Authentication failed',
-        message:
-          firebaseError.message || 'An error occurred during authentication',
-      },
-      { status: 401 }
-    );
+  } catch (error) {
+    return handleAuthError(error);
   }
 };

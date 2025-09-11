@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getFirebaseErrorMessage } from '@/utils/errorMessages';
+import { getErrorMessage } from '@/utils/errorMessages';
 
 export const ProfileSettings = () => {
   const { user } = useAuthContext();
@@ -34,10 +34,10 @@ export const ProfileSettings = () => {
       let errorMessage = 'Something went wrong. Please try again.';
 
       if (error instanceof Error) {
-        errorMessage = getFirebaseErrorMessage(error.message);
+        errorMessage = getErrorMessage(error.message);
       } else if (error && typeof error === 'object' && 'code' in error) {
         const firebaseError = error as { code: string };
-        errorMessage = getFirebaseErrorMessage(firebaseError.code);
+        errorMessage = getErrorMessage(firebaseError.code);
       }
 
       setError(errorMessage);

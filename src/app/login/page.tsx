@@ -11,7 +11,7 @@ import {
   getInitialValues,
   FormValues,
 } from './loginFormConfig';
-import { getFirebaseErrorMessage } from '@/utils/errorMessages';
+import { getErrorMessage } from '@/utils/errorMessages';
 import { useAuth } from './useAuth';
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
@@ -130,7 +130,7 @@ const Login = () => {
               {/* Show auth error using React Query state */}
               {error && (
                 <Alert severity='error' sx={{ my: 2 }}>
-                  {getFirebaseErrorMessage(error)}
+                  {getErrorMessage(error)}
                 </Alert>
               )}
             </Box>

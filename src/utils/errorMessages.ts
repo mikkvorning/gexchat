@@ -1,7 +1,7 @@
 import { FirebaseError } from 'firebase/app';
 
-// Helper function to convert Firebase error codes to user-friendly messages
-export const getFirebaseErrorMessage = (
+// Helper function to convert error codes to user-friendly messages
+export const getErrorMessage = (
   error: FirebaseError | Error | unknown
 ): string => {
   // Extract error code - Firebase errors have a 'code' property
@@ -27,6 +27,13 @@ export const getFirebaseErrorMessage = (
 		'firestore/permission-denied': 'You do not have permission to access this data.',
 		'firestore/unavailable': 'The service is currently unavailable. Please try again later.',
 		'firestore/deadline-exceeded': 'The operation took too long. Please try again.',
+		
+		// Gemini API errors
+		'gemini-error': 'AI service is currently unavailable. Please try again later.',
+		
+		// General API errors
+		'Authentication failed': 'Authentication failed. Please check your credentials and try again.',
+		'Internal server error': 'Something went wrong on our end. Please try again later.',
 	};
 
   return errorMessages[code] ?? 'Something went wrong. Please try again.';

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { handleApiError } from '@/lib/apiUtils';
 
 // Initialize Firebase Admin SDK
 if (!getApps().length) {
@@ -51,17 +52,7 @@ export const POST = async (request: NextRequest) => {
         emailVerified: decodedToken.email_verified,
       },
     });
-  } catch (error: unknown) {
-    console.error('Session verification error:', error);
-
-    const firebaseError = error as { code?: string; message?: string };
-
-    return NextResponse.json(
-      {
-        error: 'Session verification failed',
-        message: firebaseError.message || 'An error occurred',
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error);
   }
 };

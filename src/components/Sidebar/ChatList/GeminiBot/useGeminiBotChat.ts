@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useScrollToBottomOnNewMessage } from '../../../Chat/hooks/useChatEffects';
 import { Message } from '@/types/types';
 import { generateGeminiText } from '@/lib/geminiService';
+import { getErrorMessage } from '@/utils/errorMessages';
 
 const SESSION_KEY = 'gemini-bot-messages';
 const GEMINI_BOT_ID = 'gemini-bot';
@@ -46,12 +47,12 @@ export const useGeminiBotChat = (userId: string) => {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMsg]);
-    } catch {
+    } catch (error) {
       const errorMsg: Message = {
         id: `${Date.now()}-error`,
         chatId: GEMINI_BOT_ID,
         senderId: GEMINI_BOT_ID,
-        content: 'Sorry, something went wrong with Gemini.',
+        content: getErrorMessage(error),
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { handleApiError } from '@/lib/apiUtils';
 
 // Initialize Firebase Admin SDK
 if (!getApps().length) {
@@ -37,17 +38,10 @@ export const GET = async (request: NextRequest) => {
       },
     });
   } catch (error) {
-    console.error('Session verification error:', error);
-
-    // Clear invalid session cookies
-    const response = NextResponse.json(
-      { error: 'Invalid session' },
-      { status: 401 }
-    );
-
+    // Clear invalid session cookies on error
+    const response = handleApiError(error, 401);
     response.cookies.delete('session');
     response.cookies.delete('emailVerified');
-
     return response;
   }
 };

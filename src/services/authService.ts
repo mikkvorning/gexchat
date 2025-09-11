@@ -17,6 +17,15 @@ interface AuthResponse {
   };
 }
 
+interface SessionVerificationResponse {
+  success: boolean;
+  user: {
+    uid: string;
+    email: string;
+    emailVerified: boolean;
+  };
+}
+
 interface AuthError extends Error {
   code?: string;
 }
@@ -37,7 +46,10 @@ api.interceptors.response.use(
       const authError = new Error(
         error.response.data.message || 'Authentication failed'
       ) as AuthError;
-      authError.code = error.response.data.error; // Preserve Firebase error code
+
+      // Preserve Firebase error code for getErrorMessage translation
+      authError.code = error.response.data.error;
+
       throw authError;
     }
     throw error;
@@ -52,5 +64,15 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     await api.post('/auth/logout');
+  },
+
+  verifySession: async (): Promise<SessionVerificationResponse> => {
+    const response = await api.get('/auth/verify-session');
+    return response.data;
+  },
+
+  resendVerification: async (): Promise<SessionVerificationResponse> => {
+    const response = await api.post('/auth/resend-verification');
+    return response.data;
   },
 };

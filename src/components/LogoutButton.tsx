@@ -2,7 +2,7 @@
 
 import { Button, Alert } from '@/app/muiImports';
 import { useLogout } from '@/hooks/useLogout';
-import { getFirebaseErrorMessage } from '@/utils/errorMessages';
+import { getErrorMessage } from '@/utils/errorMessages';
 
 interface LogoutButtonProps {
   variant?: 'text' | 'outlined' | 'contained';
@@ -30,7 +30,7 @@ export const LogoutButton = ({
 
       {showError && error && (
         <Alert severity='error' sx={{ mt: 1 }}>
-          {getFirebaseErrorMessage(error)}
+          {getErrorMessage(error)}
         </Alert>
       )}
     </>
