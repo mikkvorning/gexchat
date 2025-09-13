@@ -19,7 +19,7 @@ export interface ApiError {
  * Handles API errors by preserving the original error information.
  * Simply passes through the error code and message so they can be
  * properly handled by client-side error translation.
- * 
+ *
  * @param error - The error to handle
  * @param statusCode - HTTP status code to return (defaults to 500)
  * @returns NextResponse with preserved error information
@@ -48,7 +48,8 @@ export const handleApiError = (error: unknown, statusCode: number = 500) => {
     },
     { status: statusCode }
   );
-};/**
+};
+/**
  * Convenience wrapper for authentication-related errors.
  * Returns a 401 Unauthorized status code.
  *

@@ -154,19 +154,7 @@ const ChatList: React.FC = () => {
     setSelectedChat(geminiBotId);
   }, [setSelectedChat]);
 
-  // ...GeminiBotListItem is now imported from its own file...
-
-  if (error) {
-    return <LoadingState message='Failed to load chats' />;
-  }
-
-  if (chatSummaries.length === 0) {
-    return (
-      <LoadingState message='Search for users above in order to start new chats!' />
-    );
-  }
-
-  // ...existing code...
+  if (error) return <LoadingState message='Failed to load chats' />;
 
   return (
     <>
@@ -186,6 +174,14 @@ const ChatList: React.FC = () => {
             onChatSelect={handleChatSelect}
           />
         ))}
+        {/* Show message when no chats exist */}
+        {chatSummaries.length === 0 && (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant='body2' color='text.secondary'>
+              Search for users above in order to start new chats!
+            </Typography>
+          </Box>
+        )}
       </List>
     </>
   );

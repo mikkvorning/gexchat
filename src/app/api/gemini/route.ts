@@ -5,10 +5,13 @@ import { handleApiError, createApiResponse } from '@/lib/apiUtils';
 export const POST = async (req: NextRequest) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return handleApiError({ 
-      code: 'GEMINI_API_KEY_MISSING', 
-      message: 'Gemini API key is missing.' 
-    }, 500);
+    return handleApiError(
+      {
+        code: 'GEMINI_API_KEY_MISSING',
+        message: 'Gemini API key is missing.',
+      },
+      500
+    );
   }
 
   const { prompt } = await req.json();
@@ -23,10 +26,13 @@ export const POST = async (req: NextRequest) => {
     return createApiResponse({ text: result.text });
   } catch (error: unknown) {
     if (error instanceof ApiError) {
-      return handleApiError({ 
-        code: error.message, 
-        message: error.message 
-      }, error.status);
+      return handleApiError(
+        {
+          code: error.message,
+          message: error.message,
+        },
+        error.status
+      );
     }
     return handleApiError(error);
   }
