@@ -4,8 +4,11 @@ import { FirebaseError } from 'firebase/app';
 export const getErrorMessage = (
   error: FirebaseError | Error | unknown
 ): string => {
-  // Extract error code - Firebase errors have a 'code' property
-  const code = (error as FirebaseError)?.code || 'unknown-error';
+  // Extract key from Firebase code or error message
+  const key =
+    (error as FirebaseError)?.code ||
+    (error as Error)?.message ||
+    'unknown-error';
 
   // prettier-ignore
   const errorMessages: Record<string, string> = {
@@ -17,7 +20,7 @@ export const getErrorMessage = (
 		'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
 		'auth/operation-not-allowed': 'Email/password sign-in is currently disabled. Please contact support.',
 		'auth/invalid-credential': 'Invalid email or password. Please check your credentials and try again.',
-		'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+		'auth/too-many-requests': 'Too many verification emails sent. Please wait 15-60 minutes before requesting another one.',
 		'auth/network-request-failed': 'Network error. Please check your internet connection and try again.',
 		'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
 		'auth/weak-password': 'Password is too weak. Please choose a stronger password.',
@@ -34,7 +37,9 @@ export const getErrorMessage = (
 		// General API errors
 		'Authentication failed': 'Authentication failed. Please check your credentials and try again.',
 		'Internal server error': 'Something went wrong on our end. Please try again later.',
+		'Email is already verified': 'Your email is already verified. You can proceed to the main application.',
+		'TOO_MANY_ATTEMPTS_TRY_LATER': 'Too many verification emails sent. Please wait 15-60 minutes before requesting another one.',
 	};
 
-  return errorMessages[code] ?? 'Something went wrong. Please try again.';
+  return errorMessages[key] ?? 'Something went wrong. Please try again.';
 };

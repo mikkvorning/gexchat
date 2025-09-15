@@ -105,12 +105,7 @@ const VerifyPage = () => {
           )}
         </CardContent>
         <CardActions sx={{ justifyContent: 'space-around', py: 3 }}>
-          <Button
-            variant='outlined'
-            onClick={() => {
-              logout(); // This will handle logout and redirect to login
-            }}
-          >
+          <Button variant='outlined' onClick={() => logout()}>
             Back to Login
           </Button>
           <Button

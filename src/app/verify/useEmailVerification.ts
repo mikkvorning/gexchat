@@ -22,16 +22,11 @@ const getStoredEmail = () => {
 
 export const useEmailVerification = () => {
   const router = useRouter();
-
   const query = useQuery({
     queryKey: ['emailVerification'],
     queryFn: async (): Promise<VerificationResponse> => {
       const response = await fetch('/api/auth/verify-session');
-
-      if (!response.ok) {
-        throw new Error('Session invalid');
-      }
-
+      if (!response.ok) throw new Error('Session invalid');
       return response.json();
     },
     retry: false,
@@ -41,13 +36,8 @@ export const useEmailVerification = () => {
 
   // Handle navigation based on verification status
   useEffect(() => {
-    if (query.data?.user) {
-      if (query.data.user.emailVerified) {
-        router.replace('/');
-      }
-    } else if (query.error) {
-      router.replace('/login');
-    }
+    if (query.data?.user?.emailVerified) router.replace('/');
+    else if (query.error) router.replace('/login');
   }, [query.data, query.error, router]);
 
   return {
