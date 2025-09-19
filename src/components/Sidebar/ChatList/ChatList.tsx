@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import GeminiBot from './GeminiBot/GeminiBot';
+import { GeminiBot } from './GeminiBot';
 import {
   Avatar,
   Badge,
@@ -122,7 +122,8 @@ ChatItem.displayName = 'ChatItem';
 
 const ChatList: React.FC = () => {
   const { user } = useAuthContext();
-  const { setSelectedChat, selectedChat } = useAppContext();
+  const { setSelectedChat, selectedChat, filterChats, searchValue } =
+    useAppContext();
 
   // Memoize user ID to prevent unnecessary hook re-renders
   const currentUserId = useMemo(() => user?.uid, [user?.uid]);
@@ -130,6 +131,12 @@ const ChatList: React.FC = () => {
   // Use custom hook for data and state management
   const { chatSummaries, userColors, isLoading, error, resetLocalUnreadCount } =
     useChatList(currentUserId, selectedChat ?? undefined);
+
+  // Apply search filter to chat summaries
+  const filteredChatSummaries = useMemo(
+    () => filterChats(chatSummaries),
+    [filterChats, chatSummaries]
+  );
 
   // Memoize the chat selection handler
   const handleChatSelect = useCallback(
@@ -160,13 +167,14 @@ const ChatList: React.FC = () => {
     <>
       <Box height={4}>{isLoading && <LinearProgress color='primary' />}</Box>
       <List>
-        {/* Gemini-bot always at the top */}
+        {/* Gemini bot handles its own visibility based on search */}
         <GeminiBot
           isSelected={isGeminiSelected}
           onSelect={handleGeminiSelect}
+          searchValue={searchValue}
         />
         {/* Render normal chats below */}
-        {chatSummaries.map((summary) => (
+        {filteredChatSummaries.map((summary) => (
           <ChatItem
             key={summary.summaryId}
             chatSummary={summary}
@@ -174,7 +182,15 @@ const ChatList: React.FC = () => {
             onChatSelect={handleChatSelect}
           />
         ))}
-        {/* Show message when no chats exist */}
+        {/* Show message when no chats found in search */}
+        {filteredChatSummaries.length === 0 && chatSummaries.length > 0 && (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant='body2' color='text.secondary'>
+              No chats found matching your search.
+            </Typography>
+          </Box>
+        )}
+        {/* Show message when no chats at all */}
         {chatSummaries.length === 0 && (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant='body2' color='text.secondary'>

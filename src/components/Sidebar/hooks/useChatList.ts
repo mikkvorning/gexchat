@@ -141,6 +141,7 @@ export const useChatList = (
       resetLocalUnreadCount: () => {},
     };
   }
+
   return {
     chatSummaries,
     userColors,

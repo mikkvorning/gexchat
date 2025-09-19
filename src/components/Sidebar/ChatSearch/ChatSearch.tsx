@@ -12,7 +12,7 @@ const ChatSearch: React.FC = () => {
   return (
     <Box display='flex' mb={2} gap={1}>
       <TextField
-        label='Search contacts'
+        label='Search chats'
         variant='outlined'
         type='search'
         size='small'

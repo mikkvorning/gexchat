@@ -57,7 +57,7 @@ const Home = () => {
 
   return (
     <Box display='flex' height='100vh'>
-      <AppProvider contacts={[]}>
+      <AppProvider>
         <Sidebar />
         <MainChatSwitcher />
       </AppProvider>
