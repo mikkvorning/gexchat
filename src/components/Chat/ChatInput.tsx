@@ -7,9 +7,15 @@ interface ChatInputProps {
   chatId: string | null;
   userId: string | undefined;
   onSendError?: (message: string) => void;
+  geminiBotSendFn?: (content: string) => Promise<void>;
 }
 
-const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
+const ChatInput = ({
+  chatId,
+  userId,
+  onSendError,
+  geminiBotSendFn,
+}: ChatInputProps) => {
   const {
     messageText,
     setMessageText,
@@ -17,7 +23,7 @@ const ChatInput = ({ chatId, userId, onSendError }: ChatInputProps) => {
     sendMessageMutation,
     handleSendMessage,
     handleKeyPress,
-  } = useSendMessage({ chatId, userId, onError: onSendError });
+  } = useSendMessage({ chatId, userId, onError: onSendError, geminiBotSendFn });
 
   useEffect(() => {
     // Cleanup: remove debug log effect

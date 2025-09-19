@@ -19,8 +19,7 @@ export const useGeminiBotChat = (userId: string) => {
     }
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { messagesEndRef, scrollToBottom } =
-    useScrollToBottomOnNewMessage(messages);
+  const { messagesEndRef } = useScrollToBottomOnNewMessage(messages);
 
   // Persist messages in sessionStorage
   useEffect(() => {

@@ -23,7 +23,6 @@ const filterChatsBySearch = (
   searchValue: string
 ): ChatSummary[] => {
   if (!searchValue) return chats;
-
   const lowerSearchValue = searchValue.toLowerCase();
 
   return chats.filter((chat) => {

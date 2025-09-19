@@ -23,14 +23,10 @@ const MainChatSwitcher = () => {
 const Home = () => {
   const { user, loading } = useAuthContext();
   const router = useRouter();
-
-  // Set up global chat listener for real-time updates across all chats
-  useRecentMessages(user?.uid);
+  useRecentMessages(user?.uid); // Set up global chat listener for real-time updates across all chats
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login');
-    }
+    if (!loading && !user) router.replace('/login');
   }, [user, loading, router]);
 
   if (loading) {
@@ -51,9 +47,7 @@ const Home = () => {
     );
   }
 
-  if (!user) {
-    return null; // Redirecting
-  }
+  if (!user) return null;
 
   return (
     <Box display='flex' height='100vh'>

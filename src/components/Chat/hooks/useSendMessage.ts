@@ -6,6 +6,7 @@ interface UseSendMessageProps {
   chatId: string | null;
   userId: string | undefined;
   onError?: (message: string, retryCallback: () => void) => void;
+  geminiBotSendFn?: (content: string) => Promise<void>;
 }
 
 /**
@@ -15,17 +16,32 @@ export const useSendMessage = ({
   chatId,
   userId,
   onError,
+  geminiBotSendFn,
 }: UseSendMessageProps) => {
   const [messageText, setMessageText] = useState('');
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string>('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Helper function for retry functionality
-  // This function allows resending a failed message with its exact original content,
-  // independent of what's currently in the input field. Used by the error ribbon
-  // retry mechanism to resend failed messages without affecting user's current typing.
+  /**
+   * Helper function to retry sending a message. This function allows resending a failed message
+   * with its exact original content, independent of what's currently in the input field.
+   * Used by the error ribbon retry mechanism to resend failed messages without affecting
+   * user's current typing.
+   * @param content - The content of the message to resend.
+   * @returns void
+   */
   const retrySendMessage = (content: string) => {
+    // For Gemini bot, we don't need chatId/userId validation
+    if (geminiBotSendFn) {
+      sendMessageMutation.mutate({
+        chatId: '', // Not used for Gemini bot
+        senderId: '', // Not used for Gemini bot
+        content,
+      });
+      return;
+    }
+
     if (!chatId || !userId) return;
 
     sendMessageMutation.mutate({
@@ -35,9 +51,9 @@ export const useSendMessage = ({
     });
   };
 
-  // Send message mutation
+  // Send message mutation as either Gemini bot or Firestore
   const sendMessageMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       chatId,
       senderId,
       content,
@@ -45,47 +61,48 @@ export const useSendMessage = ({
       chatId: string;
       senderId: string;
       content: string;
-    }) => sendMessage(chatId, senderId, content),
-    onSuccess: () => {
-      // Message sent successfully, input was already cleared optimistically
-      // No need to focus here, handled by useEffect
+    }) => {
+      if (geminiBotSendFn) {
+        await geminiBotSendFn(content);
+        return; // No return value needed for Gemini bot
+      }
+      return sendMessage(chatId, senderId, content);
     },
     onError: (error, variables) => {
       console.error('Failed to send message:', error);
-      // Store the failed message for potential retry
       setFailedMessage(variables.content);
-      // Show error snackbar
       setShowErrorSnackbar(true);
-      // Call external error handler if provided
-      if (onError) {
-        onError(variables.content, () => retrySendMessage(variables.content));
-      }
-      // No need to focus here, handled by useEffect
+      // Call external error handler if provided, using our internal retry function
+      onError?.(variables.content, () => retrySendMessage(variables.content));
     },
   });
 
   // Handle sending message
   const handleSendMessage = () => {
-    if (
-      !chatId ||
-      !userId ||
-      !messageText.trim() ||
-      sendMessageMutation.isPending
-    ) {
+    if (!messageText.trim() || sendMessageMutation.isPending) return;
+
+    // For Gemini bot, we don't need chatId/userId validation
+    if (geminiBotSendFn) {
+      const messageToSend = messageText.trim();
+      setMessageText('');
+      sendMessageMutation.mutate({
+        chatId: '', // Not used for Gemini bot
+        senderId: '', // Not used for Gemini bot
+        content: messageToSend,
+      });
       return;
     }
 
+    // Regular validation for Firestore messages
+    if (!chatId || !userId) return;
     const messageToSend = messageText.trim();
-
-    // Optimistically clear the input immediately for better UX
-    setMessageText('');
+    setMessageText(''); // Optimistically clear the input immediately for better UX
 
     sendMessageMutation.mutate({
       chatId,
       senderId: userId,
       content: messageToSend,
     });
-    // No need to focus here, handled by useEffect
   };
 
   // Handle Enter key press
@@ -104,7 +121,19 @@ export const useSendMessage = ({
 
   // Handle retry button click
   const handleRetry = () => {
-    if (failedMessage && chatId && userId) {
+    if (!failedMessage) return;
+    if (geminiBotSendFn) {
+      sendMessageMutation.mutate({
+        chatId: '', // Not used for Gemini bot
+        senderId: '', // Not used for Gemini bot
+        content: failedMessage,
+      });
+      setShowErrorSnackbar(false);
+      setFailedMessage('');
+      return;
+    }
+
+    if (chatId && userId) {
       sendMessageMutation.mutate({
         chatId,
         senderId: userId,
@@ -112,7 +141,6 @@ export const useSendMessage = ({
       });
       setShowErrorSnackbar(false);
       setFailedMessage('');
-      // No need to focus here, handled by useEffect
     }
   };
 
