@@ -9,24 +9,27 @@ import {
 import { GEMINI_BOT_CONFIG } from './geminiBotConfig';
 import { generateAvatarColor } from '@/utils/colors';
 import { filterGeminiBotBySearch } from './geminiBotUtils';
+import { useAppContext } from '@/components/AppProvider';
 
 interface GeminiBotListItemProps {
-  isSelected: boolean;
-  onSelect: () => void;
+  onChatSelect: (chatId: string) => void;
   searchValue?: string;
 }
 
 const GeminiBot: React.FC<GeminiBotListItemProps> = ({
-  isSelected,
-  onSelect,
+  onChatSelect,
   searchValue = '',
 }) => {
+  const { selectedChat } = useAppContext();
+  const botId = GEMINI_BOT_CONFIG.id;
+  const isSelected = selectedChat === botId;
+
   // Don't render if search doesn't match
   if (!filterGeminiBotBySearch(searchValue)) return null;
 
   return (
     <ListItem
-      onClick={onSelect}
+      onClick={() => onChatSelect(botId)}
       // TODO: Create a shared style for all chat list items
       sx={{
         borderRadius: 1,
@@ -65,7 +68,9 @@ const GeminiBot: React.FC<GeminiBotListItemProps> = ({
         }
         secondary={
           <Typography variant='body2' color='text.secondary'>
-            {GEMINI_BOT_CONFIG.description}
+            {isSelected
+              ? 'Currently chatting... 🤖'
+              : GEMINI_BOT_CONFIG.description}
           </Typography>
         }
       />

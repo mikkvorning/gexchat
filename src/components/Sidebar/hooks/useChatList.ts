@@ -112,6 +112,7 @@ export const useChatList = (
     };
   }, [userId, selectedChatId]);
 
+  // Memorize user colors generated from user IDs
   const userColors = useMemo(() => {
     const colors: Record<string, string> = {};
     chatSummaries.forEach((summary) => {
@@ -124,21 +125,12 @@ export const useChatList = (
     return colors;
   }, [chatSummaries]);
 
-  const resetLocalUnreadCount = (chatId: string) => {
-    setChatSummaries((prevSummaries) =>
-      prevSummaries.map((chat) =>
-        chat.summaryId === chatId ? { ...chat, unreadCount: 0 } : chat
-      )
-    );
-  };
-
   if (isGeminiBot) {
     return {
       chatSummaries: [],
       userColors: {},
       isLoading: false,
       error: null,
-      resetLocalUnreadCount: () => {},
     };
   }
 
@@ -147,6 +139,5 @@ export const useChatList = (
     userColors,
     isLoading,
     error,
-    resetLocalUnreadCount,
   };
 };

@@ -129,8 +129,10 @@ const ChatList: React.FC = () => {
   const currentUserId = useMemo(() => user?.uid, [user?.uid]);
 
   // Use custom hook for data and state management
-  const { chatSummaries, userColors, isLoading, error, resetLocalUnreadCount } =
-    useChatList(currentUserId, selectedChat ?? undefined);
+  const { chatSummaries, userColors, isLoading, error } = useChatList(
+    currentUserId,
+    selectedChat ?? undefined
+  );
 
   // Apply search filter to chat summaries
   const filteredChatSummaries = useMemo(
@@ -140,27 +142,20 @@ const ChatList: React.FC = () => {
 
   // Memoize the chat selection handler
   const handleChatSelect = useCallback(
-    async (chatId: string) => {
-      setSelectedChat(chatId);
+    async (newChatId: string) => {
       if (currentUserId) {
-        // Optimistically reset unread count client-side
-        if (resetLocalUnreadCount) resetLocalUnreadCount(chatId);
         // Dynamic import to avoid initial load for chats that are never actually selected
         import('@/lib/chatService').then(({ resetUnreadCount }) => {
-          resetUnreadCount(chatId, currentUserId);
+          resetUnreadCount([selectedChat, newChatId], currentUserId);
         });
       }
+
+      setSelectedChat(newChatId);
     },
-    [setSelectedChat, currentUserId, resetLocalUnreadCount]
+    [selectedChat, setSelectedChat, currentUserId]
   );
 
-  // Gemini-bot static item handler (must be before any returns)
-  const geminiBotId = 'gemini-bot';
-  const isGeminiSelected = selectedChat === geminiBotId;
-  const handleGeminiSelect = React.useCallback(() => {
-    setSelectedChat(geminiBotId);
-  }, [setSelectedChat]);
-
+  // Gemini-bot static item handler
   if (error) return <LoadingState message='Failed to load chats' />;
 
   return (
@@ -168,11 +163,7 @@ const ChatList: React.FC = () => {
       <Box height={4}>{isLoading && <LinearProgress color='primary' />}</Box>
       <List>
         {/* Gemini bot handles its own visibility based on search */}
-        <GeminiBot
-          isSelected={isGeminiSelected}
-          onSelect={handleGeminiSelect}
-          searchValue={searchValue}
-        />
+        <GeminiBot onChatSelect={handleChatSelect} searchValue={searchValue} />
         {/* Render normal chats below */}
         {filteredChatSummaries.map((summary) => (
           <ChatItem

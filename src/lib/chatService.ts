@@ -521,9 +521,7 @@ export const subscribeToMessages = (
   );
 };
 
-/**
- * Subscribe to real-time chat data
- */
+// Subscribe to real-time chat data
 export const subscribeToChat = (
   chatId: string,
   callback: (chat: Chat | null) => void
@@ -560,18 +558,25 @@ export const subscribeToChat = (
   );
 };
 
-/**
- * Reset unread count for a user in a chat
- *
- * TODO: For future optimization, consider client-side unread resets with timestamp comparison and session storage. This would reduce API calls by syncing the reset to the DB only on next relevant write (e.g., sending a message or app load). Ensure to handle edge cases like tab close, multiple devices, and desync by comparing timestamps between local and DB values.
- */
-export const resetUnreadCount = async (chatId: string, userId: string) => {
-  const chatRef = doc(db, 'chats', chatId);
-  const chatSnap = await getDoc(chatRef);
-  if (!chatSnap.exists()) return;
-  const chat = chatSnap.data() as Chat;
-  const updatedParticipants = chat.participants.map((p) =>
-    p.userId === userId ? { ...p, unreadCount: 0 } : p
+// Reset unread count for a user in one or more chats
+export const resetUnreadCount = async (
+  chatIds: (string | null)[],
+  userId: string
+) => {
+  await Promise.all(
+    // prettier-ignore
+    (chatIds
+      .filter(Boolean)
+      .filter((id) => id !== 'gemini-bot') as string[]).map(async (chatId) => {
+      const chatRef = doc(db, 'chats', chatId);
+      const chatSnap = await getDoc(chatRef);
+      if (!chatSnap.exists()) return;
+
+      const chat = chatSnap.data() as Chat;
+      const updatedParticipants = chat.participants.map((p) =>
+        p.userId === userId ? { ...p, unreadCount: 0 } : p
+      );
+      await updateDoc(chatRef, { participants: updatedParticipants });
+    })
   );
-  await updateDoc(chatRef, { participants: updatedParticipants });
 };
