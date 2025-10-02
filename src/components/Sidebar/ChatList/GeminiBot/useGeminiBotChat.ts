@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useScrollToBottomOnNewMessage } from '../../../Chat/hooks/useChatEffects';
+import { useChatEffects } from '../../../Chat/hooks/useChatEffects';
 import { Message } from '@/types/types';
 import { generateGeminiText } from '@/lib/geminiService';
 import { getErrorMessage } from '@/utils/errorMessages';
@@ -19,7 +19,11 @@ export const useGeminiBotChat = (userId: string) => {
     }
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { messagesEndRef } = useScrollToBottomOnNewMessage(messages);
+  const { messagesEndRef } = useChatEffects({
+    selectedChat: GEMINI_BOT_ID,
+    messages,
+    messageInputRef: { current: null }, // ChatInput manages its own ref
+  });
 
   // Persist messages in sessionStorage
   useEffect(() => {
