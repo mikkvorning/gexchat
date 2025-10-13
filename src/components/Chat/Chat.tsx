@@ -1,24 +1,18 @@
 import { Box, Typography } from '../../app/muiImports';
-import { useAuthContext } from '../AuthProvider';
 import { useAppContext } from '../AppProvider';
+import { useAuthContext } from '../AuthProvider';
+import ChatHeader from './ChatHeader';
+import ChatInput from './ChatInput';
+import ChatMessages from './ChatMessages';
+import ErrorRibbon from './ErrorRibbon';
 import { useChat } from './hooks/useChat';
-import { useChatEffects } from './hooks/useChatEffects';
 import { useMessageError } from './hooks/useMessageError';
 import { getChatDisplayName } from './utils/chatUtils';
-import ChatHeader from './ChatHeader';
-import ChatMessages from './ChatMessages';
-import ChatInput from './ChatInput';
-import ErrorRibbon from './ErrorRibbon';
 
 const Chat = () => {
   const { user } = useAuthContext();
   const { selectedChat } = useAppContext();
   const { chat, messages, isLoading, error } = useChat(selectedChat);
-  const { messagesEndRef } = useChatEffects({
-    selectedChat,
-    messages,
-    messageInputRef: { current: null },
-  });
   const {
     showError,
     failedMessage,
@@ -91,11 +85,7 @@ const Chat = () => {
       }}
     >
       <ChatHeader displayName={displayName} />
-      <ChatMessages
-        messages={messages}
-        currentUserId={user?.uid}
-        messagesEndRef={messagesEndRef}
-      />
+      <ChatMessages messages={messages} currentUserId={user?.uid} />
       <ErrorRibbon
         isVisible={showError}
         failedMessage={failedMessage}

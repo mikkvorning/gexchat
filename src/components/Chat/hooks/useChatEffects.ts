@@ -17,7 +17,6 @@ export const useChatEffects = ({
 }: UseChatEffectsProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessages = useRef<Message[]>([]);
-  console.log('prevMessages', prevMessages);
 
   // Focus the message input when a chat is selected
   useEffect(() => {
