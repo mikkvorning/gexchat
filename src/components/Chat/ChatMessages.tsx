@@ -2,7 +2,6 @@ import { Box, Typography } from '../../app/muiImports';
 import MarkdownMessage from './MarkdownMessage';
 import { Message } from '../../types/types';
 import { useChatEffects } from './hooks/useChatEffects';
-import { useRef } from 'react';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -10,8 +9,7 @@ interface ChatMessagesProps {
 }
 
 const ChatMessages = ({ messages, currentUserId }: ChatMessagesProps) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { shouldAnimate } = useChatEffects({
+  const { messagesEndRef, shouldAnimate } = useChatEffects({
     selectedChat: null, // We don't need selectedChat for animation logic
     messages,
     messageInputRef: { current: null }, // We don't need messageInputRef for animation logic

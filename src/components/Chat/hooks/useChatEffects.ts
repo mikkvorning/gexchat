@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Message } from '../../../types/types';
 
 interface UseChatEffectsProps {
@@ -8,7 +8,7 @@ interface UseChatEffectsProps {
 }
 
 /**
- * Custom hook for handling chat UI effects like focus and auto-scroll
+ * Custom hook for handling input focus and auto scroll UI effects
  */
 export const useChatEffects = ({
   selectedChat,
@@ -17,6 +17,15 @@ export const useChatEffects = ({
 }: UseChatEffectsProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessages = useRef<Message[]>([]);
+
+  // Helper function to get chat switch information
+  const getChatInfo = useCallback(() => {
+    const prev = prevMessages.current;
+    const currentChatId = messages[0]?.chatId;
+    const prevChatId = prev[0]?.chatId;
+    const isChatSwitch = currentChatId !== prevChatId;
+    return { prev, currentChatId, prevChatId, isChatSwitch };
+  }, [messages]);
 
   // Focus the message input when a chat is selected
   useEffect(() => {
@@ -30,25 +39,31 @@ export const useChatEffects = ({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    const prev = prevMessages.current;
-    const currentChatId = messages[0]?.chatId;
-    const prevChatId = prev[0]?.chatId;
+    const { isChatSwitch } = getChatInfo();
 
-    if (messages.length > prev.length) {
-      const isChatSwitch = currentChatId !== prevChatId;
-      const behavior: ScrollBehavior = isChatSwitch ? 'auto' : 'smooth';
-      messagesEndRef.current?.scrollIntoView({ behavior });
-    }
+    // Use instant scroll for chat switches, smooth for new messages
+    const behavior: ScrollBehavior = isChatSwitch ? 'instant' : 'smooth';
+    messagesEndRef.current?.scrollIntoView({ behavior });
 
+    // Update reference for next comparison
     prevMessages.current = messages;
-  }, [messages]);
+  }, [messages, getChatInfo]);
+
+  /**
+   * Determines if a message should animate based on its position and chat state
+   */
+  const shouldAnimate = useCallback(
+    (messageIndex: number) => {
+      const { prev, isChatSwitch } = getChatInfo();
+
+      // Only animate messages that are new (beyond previous length) and not during chat switches
+      return messageIndex >= prev.length && !isChatSwitch;
+    },
+    [getChatInfo]
+  );
 
   return {
     messagesEndRef,
-    shouldAnimate: (messageIndex: number) => {
-      const prev = prevMessages.current;
-      const isChatSwitch = messages[0]?.chatId !== prev[0]?.chatId;
-      return messageIndex >= prev.length && !isChatSwitch;
-    },
+    shouldAnimate,
   };
 };
