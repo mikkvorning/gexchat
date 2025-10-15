@@ -23,6 +23,7 @@ export const useMessaging = ({
   // Message state
   const [messageText, setMessageText] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const messageTextRef = useRef('');
 
   // Typing state
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -48,36 +49,47 @@ export const useMessaging = ({
     }
   };
 
-  // Start typing function
-  const handleStartTyping = useCallback(() => {
+  // Create stable typing functions using refs to avoid dependency issues
+  const typingFunctionsRef = useRef({
+    handleStartTyping: () => {},
+    handleStopTyping: () => {},
+  });
+
+  // Update the functions in the ref when dependencies change
+  typingFunctionsRef.current.handleStartTyping = () => {
     if (!chatId || !userId || chatId === 'gemini-bot') return;
 
     clearTypingTimeout();
 
-    // Set typing to true if not already
     if (!isTypingRef.current) {
       typingMutation.mutate({ isTyping: true });
     }
 
-    // Set a timeout to stop typing after 5 seconds as a fallback
     typingTimeoutRef.current = setTimeout(() => {
       if (isTypingRef.current) {
         typingMutation.mutate({ isTyping: false });
       }
     }, 5000);
-  }, [chatId, userId, typingMutation]);
+  };
 
-  // Stop typing function
-  const handleStopTyping = useCallback(() => {
+  typingFunctionsRef.current.handleStopTyping = () => {
     if (!chatId || !userId || chatId === 'gemini-bot') return;
 
     clearTypingTimeout();
 
-    // Stop typing
     if (isTypingRef.current) {
       typingMutation.mutate({ isTyping: false });
     }
-  }, [chatId, userId, typingMutation]);
+  };
+
+  // Create stable callback references
+  const handleStartTyping = useCallback(() => {
+    typingFunctionsRef.current.handleStartTyping();
+  }, []);
+
+  const handleStopTyping = useCallback(() => {
+    typingFunctionsRef.current.handleStopTyping();
+  }, []);
 
   /**
    * Helper function to retry sending a message. This function allows resending a failed message
@@ -126,7 +138,7 @@ export const useMessaging = ({
     },
     onSuccess: () => {
       // Stop typing when message is sent
-      handleStopTyping();
+      typingFunctionsRef.current.handleStopTyping();
       // Call the callback when message is successfully sent
       onMessageSent?.();
     },
@@ -145,6 +157,7 @@ export const useMessaging = ({
     if (geminiBotSendFn) {
       const messageToSend = messageText.trim();
       setMessageText('');
+      messageTextRef.current = ''; // Keep ref in sync
       sendMessageMutation.mutate({
         chatId: '', // Not used for Gemini bot
         senderId: '', // Not used for Gemini bot
@@ -157,6 +170,7 @@ export const useMessaging = ({
     if (!chatId || !userId) return;
     const messageToSend = messageText.trim();
     setMessageText(''); // Optimistically clear the input immediately for better UX
+    messageTextRef.current = ''; // Keep ref in sync
 
     sendMessageMutation.mutate({
       chatId,
@@ -176,9 +190,11 @@ export const useMessaging = ({
   // Handle text change with typing detection
   const handleTextChange = useCallback(
     (value: string) => {
-      const previousHasContent = messageText.trim().length > 0;
+      const previousHasContent = messageTextRef.current.trim().length > 0;
       const currentHasContent = value.trim().length > 0;
 
+      // Update refs and state
+      messageTextRef.current = value;
       setMessageText(value);
 
       // Only update backend when typing state actually changes (and not for Gemini bot)
@@ -198,7 +214,7 @@ export const useMessaging = ({
         }
       }
     },
-    [messageText, geminiBotSendFn, handleStartTyping, handleStopTyping]
+    [geminiBotSendFn, handleStartTyping, handleStopTyping]
   );
 
   return {
