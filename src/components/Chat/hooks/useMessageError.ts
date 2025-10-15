@@ -32,9 +32,7 @@ export const useMessageError = () => {
 
   // Handle retry
   const handleRetry = () => {
-    if (onRetryCallback) {
-      onRetryCallback();
-    }
+    if (onRetryCallback) onRetryCallback();
     setShowError(false);
     setFailedMessage('');
     setOnRetryCallback(null);

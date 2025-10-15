@@ -85,7 +85,7 @@ const Chat = () => {
       }}
     >
       <ChatHeader displayName={displayName} />
-      <ChatMessages messages={messages} currentUserId={user?.uid} />
+      <ChatMessages messages={messages} currentUserId={user?.uid} chat={chat} />
       <ErrorRibbon
         isVisible={showError}
         failedMessage={failedMessage}

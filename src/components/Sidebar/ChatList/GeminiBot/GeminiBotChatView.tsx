@@ -6,7 +6,7 @@ import ChatInput from '../../../Chat/ChatInput';
 import { useGeminiBotChat } from './useGeminiBotChat';
 
 const GeminiBotChatView: React.FC<{ userId: string }> = ({ userId }) => {
-  const { messages, sendMessage } = useGeminiBotChat(userId);
+  const { messages, sendMessage, isLoading, chat } = useGeminiBotChat(userId);
 
   return (
     <Box
@@ -18,11 +18,12 @@ const GeminiBotChatView: React.FC<{ userId: string }> = ({ userId }) => {
       }}
     >
       <ChatHeader displayName='Gemini-bot' />
-      <ChatMessages messages={messages} currentUserId={userId} />
+      <ChatMessages messages={messages} currentUserId={userId} chat={chat} />
       <ChatInput
         chatId='gemini-bot'
         userId={userId}
         geminiBotSendFn={sendMessage}
+        isLoading={isLoading}
       />
     </Box>
   );

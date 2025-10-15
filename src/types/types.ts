@@ -111,4 +111,5 @@ export interface ChatParticipant {
   displayName: string;
   unreadCount: number;
   lastMessage?: Message; // New: last unread message for this participant
+  isTyping?: boolean; // Typing indicator state
 }

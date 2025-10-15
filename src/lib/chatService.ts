@@ -580,3 +580,24 @@ export const resetUnreadCount = async (
     })
   );
 };
+
+/**
+ * Update typing status for a user in a chat
+ */
+export const updateTypingStatus = async (
+  chatId: string,
+  userId: string,
+  isTyping: boolean
+): Promise<void> => {
+  if (!chatId || !userId || chatId === 'gemini-bot') return;
+
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) return;
+
+  const chat = chatSnap.data() as Chat;
+  const updatedParticipants = chat.participants.map((p) =>
+    p.userId === userId ? { ...p, isTyping } : p
+  );
+  await updateDoc(chatRef, { participants: updatedParticipants });
+};

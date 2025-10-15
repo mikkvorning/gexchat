@@ -22,7 +22,6 @@ export const POST = async (req: NextRequest) => {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    // result.text is a getter that returns the concatenated text from the first candidate
     return createApiResponse({ text: result.text });
   } catch (error: unknown) {
     if (error instanceof ApiError) {
