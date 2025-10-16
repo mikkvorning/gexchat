@@ -73,8 +73,6 @@ export const useGeminiBotChat = (userId: string) => {
     const userMsg = createMessage(`${Date.now()}-user`, userId, content);
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
-
-    // Set Gemini as typing
     setIsGeminiTyping(true);
 
     try {

@@ -61,7 +61,7 @@ const ChatInput = ({
             handleTextChange(e.target.value);
           }}
           onKeyPress={handleKeyPress}
-          onBlur={handleStopTyping} // Stop typing when user leaves the input
+          // onBlur={handleStopTyping} // Stop typing when user leaves the input
         />
         <IconButton
           size='large'

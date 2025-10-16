@@ -10,9 +10,9 @@ interface UseMessagingProps {
   onMessageSent?: () => void; // Callback when message is successfully sent
 }
 
-/**
- * Custom hook for handling messaging functionality including sending messages and typing indicators
- */
+const TYPING_TIMEOUT_MS = 5000;
+const GEMINI_BOT_ID = 'gemini-bot';
+
 export const useMessaging = ({
   chatId,
   userId,
@@ -20,28 +20,21 @@ export const useMessaging = ({
   geminiBotSendFn,
   onMessageSent,
 }: UseMessagingProps) => {
-  // Message state
   const [messageText, setMessageText] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const messageTextRef = useRef('');
-
-  // Typing state
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
 
-  // Typing status mutation
+  // Update typing status on the backend
   const typingMutation = useMutation({
     mutationFn: ({ isTyping }: { isTyping: boolean }) =>
       updateTypingStatus(chatId!, userId!, isTyping),
-    onSuccess: (_, variables) => {
-      isTypingRef.current = variables.isTyping;
-    },
-    onError: (error) => {
-      console.error('Failed to update typing status:', error);
-    },
+    onSuccess: (_, variables) => (isTypingRef.current = variables.isTyping),
+    onError: (error) => console.error('Failed to update typing status:', error),
   });
 
-  // Clear timeout helper
+  // Clears any existing typing timeout
   const clearTypingTimeout = () => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -55,31 +48,30 @@ export const useMessaging = ({
     handleStopTyping: () => {},
   });
 
+  // Checks if ids are valid in the context of indicating typing activity
+  const hasValidId = () => chatId || userId || chatId !== GEMINI_BOT_ID;
+
   // Update the functions in the ref when dependencies change
   typingFunctionsRef.current.handleStartTyping = () => {
-    if (!chatId || !userId || chatId === 'gemini-bot') return;
-
+    if (!hasValidId()) return;
     clearTypingTimeout();
 
-    if (!isTypingRef.current) {
-      typingMutation.mutate({ isTyping: true });
-    }
+    // Only send typing true if not already typing
+    if (!isTypingRef.current) typingMutation.mutate({ isTyping: true });
 
+    // Set timeout to reset typing status after inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      if (isTypingRef.current) {
-        typingMutation.mutate({ isTyping: false });
-      }
-    }, 5000);
+      if (isTypingRef.current) typingMutation.mutate({ isTyping: false });
+    }, TYPING_TIMEOUT_MS);
   };
 
+  // Stop typing function
   typingFunctionsRef.current.handleStopTyping = () => {
-    if (!chatId || !userId || chatId === 'gemini-bot') return;
-
+    if (!hasValidId()) return;
     clearTypingTimeout();
 
-    if (isTypingRef.current) {
-      typingMutation.mutate({ isTyping: false });
-    }
+    // Only send typing false if currently typing
+    if (isTypingRef.current) typingMutation.mutate({ isTyping: false });
   };
 
   // Create stable callback references
@@ -91,32 +83,26 @@ export const useMessaging = ({
     typingFunctionsRef.current.handleStopTyping();
   }, []);
 
-  /**
-   * Helper function to retry sending a message. This function allows resending a failed message
-   * with its exact original content, independent of what's currently in the input field.
-   * Used by the error ribbon retry mechanism to resend failed messages without affecting
-   * user's current typing.
-   * @param content - The content of the message to resend.
-   * @returns void
-   */
+  // Helper to check if we're in Gemini bot mode
+  const isGeminiBot = !!geminiBotSendFn;
+
+  // Helper to clear input text
+  const clearInput = () => {
+    setMessageText('');
+    messageTextRef.current = '';
+  };
+
+  // Send message helper that handles both Gemini bot and regular chats
+  const sendMutationMessage = (content: string) => {
+    const mutationParams = isGeminiBot
+      ? { chatId: '', senderId: '', content } // Empty values for Gemini bot
+      : { chatId: chatId!, senderId: userId!, content };
+    sendMessageMutation.mutate(mutationParams);
+  };
+
+  // Retry function to resend the last message
   const retrySendMessage = (content: string) => {
-    // For Gemini bot, we don't need chatId/userId validation
-    if (geminiBotSendFn) {
-      sendMessageMutation.mutate({
-        chatId: '', // Not used for Gemini bot
-        senderId: '', // Not used for Gemini bot
-        content,
-      });
-      return;
-    }
-
-    if (!chatId || !userId) return;
-
-    sendMessageMutation.mutate({
-      chatId,
-      senderId: userId,
-      content,
-    });
+    if (isGeminiBot || (chatId && userId)) sendMutationMessage(content);
   };
 
   // Send message mutation as either Gemini bot or Firestore
@@ -137,10 +123,8 @@ export const useMessaging = ({
       return sendMessage(chatId, senderId, content);
     },
     onSuccess: () => {
-      // Stop typing when message is sent
-      typingFunctionsRef.current.handleStopTyping();
-      // Call the callback when message is successfully sent
-      onMessageSent?.();
+      typingFunctionsRef.current.handleStopTyping(); // Stop typing when message is sent
+      onMessageSent?.(); // Call the callback when message is successfully sent
     },
     onError: (error, variables) => {
       console.error('Failed to send message:', error);
@@ -152,31 +136,12 @@ export const useMessaging = ({
   // Handle sending message
   const handleSendMessage = () => {
     if (!messageText.trim() || sendMessageMutation.isPending) return;
-
-    // For Gemini bot, we don't need chatId/userId validation
-    if (geminiBotSendFn) {
-      const messageToSend = messageText.trim();
-      setMessageText('');
-      messageTextRef.current = ''; // Keep ref in sync
-      sendMessageMutation.mutate({
-        chatId: '', // Not used for Gemini bot
-        senderId: '', // Not used for Gemini bot
-        content: messageToSend,
-      });
-      return;
-    }
-
-    // Regular validation for Firestore messages
-    if (!chatId || !userId) return;
     const messageToSend = messageText.trim();
-    setMessageText(''); // Optimistically clear the input immediately for better UX
-    messageTextRef.current = ''; // Keep ref in sync
+    clearInput(); // Clear optimistically for better UX
 
-    sendMessageMutation.mutate({
-      chatId,
-      senderId: userId,
-      content: messageToSend,
-    });
+    // Validate requirements for regular chats (Gemini bot doesn't need validation)
+    if (!isGeminiBot && (!chatId || !userId)) return;
+    sendMutationMessage(messageToSend);
   };
 
   // Handle Enter key press
@@ -198,35 +163,26 @@ export const useMessaging = ({
       setMessageText(value);
 
       // Only update backend when typing state actually changes (and not for Gemini bot)
-      if (!geminiBotSendFn) {
-        if (previousHasContent !== currentHasContent) {
-          if (currentHasContent) {
-            // User started typing (empty -> has content)
-            handleStartTyping();
-          } else {
-            // User cleared the input (has content -> empty)
-            handleStopTyping();
-          }
-        } else if (currentHasContent && !isTypingRef.current) {
-          // User is typing but typing status is false (likely due to timeout)
-          // Resume typing indicator
-          handleStartTyping();
-        }
+      if (!isGeminiBot) {
+        const typingStateChanged = previousHasContent !== currentHasContent;
+        const shouldResumeTyping = currentHasContent && !isTypingRef.current;
+
+        if (typingStateChanged) {
+          if (currentHasContent) handleStartTyping();
+          else handleStopTyping();
+        } else if (shouldResumeTyping) handleStartTyping(); // User is typing but typing status is false (likely due to timeout)
       }
     },
-    [geminiBotSendFn, handleStartTyping, handleStopTyping]
+    [isGeminiBot, handleStartTyping, handleStopTyping]
   );
 
   return {
-    // Message functionality
     messageText,
     messageInputRef,
     sendMessageMutation,
     handleSendMessage,
     handleKeyPress,
     handleTextChange,
-
-    // Typing functionality
     handleStopTyping,
   };
 };

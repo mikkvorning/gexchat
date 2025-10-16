@@ -24,7 +24,13 @@ const ChatMessages = ({ messages, currentUserId, chat }: ChatMessagesProps) => {
 
   return (
     <Box
-      sx={{ flex: 1, overflow: 'auto', p: 2, overflowX: 'hidden' }}
+      sx={{
+        flex: 1,
+        overflow: 'auto',
+        p: 2,
+        overflowX: 'hidden',
+        position: 'relative',
+      }}
       className='chat-messages'
     >
       {messages.map((message, index) => {
@@ -70,39 +76,24 @@ const ChatMessages = ({ messages, currentUserId, chat }: ChatMessagesProps) => {
       })}
 
       {/* Typing indicators */}
-      {typingParticipants.length > 0 && (
-        <Box
-          sx={{
-            mb: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-          }}
-        >
-          <Box
-            sx={{
-              bgcolor: 'grey.800',
-              color: 'text.primary',
-              p: 2,
-              borderRadius: 2,
-              maxWidth: '70%',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mt: -2,
+          color: 'text.secondary',
+        }}
+      >
+        {typingParticipants.length > 0 && (
+          <>
             <CircularProgress size={12} sx={{ mr: 1 }} />
             <Typography variant='body2'>
-              {typingParticipants.length === 1
-                ? `${typingParticipants[0].displayName} is typing...`
-                : typingParticipants.length === 2
-                ? `${typingParticipants[0].displayName} and ${typingParticipants[1].displayName} are typing...`
-                : `${typingParticipants[0].displayName} and ${
-                    typingParticipants.length - 1
-                  } others are typing...`}
+              {typingParticipants.map((p) => p.displayName).join(', ')}
+              {typingParticipants.length === 1 ? ' is' : ' are'} typing...
             </Typography>
-          </Box>
-        </Box>
-      )}
+          </>
+        )}
+      </Box>
 
       {/* Scroll anchor */}
       <div ref={messagesEndRef} />
