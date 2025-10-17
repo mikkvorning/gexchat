@@ -1,24 +1,25 @@
 // A dialog popup with a search field for finding new contacts in the Firebase database.
-import React, { useState, useMemo } from 'react';
+import { useAppContext } from '@/components/AppProvider';
+import { useAuthContext } from '@/components/AuthProvider';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
   Button,
   CircularProgress,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
   Typography,
-  Box,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useAuthContext } from '@/components/AuthProvider';
-import { useAppContext } from '@/components/AppProvider';
-import { useUserSearch } from '../hooks/useUserSearch';
+import React, { useMemo, useState } from 'react';
 import { useCreateChat } from '../hooks/useCreateChat';
+import { useUserSearch } from '../hooks/useUserSearch';
+import { enqueueSnackbar } from 'notistack';
 
 interface AddContactProps {
   open: boolean;
@@ -62,7 +63,9 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   };
 
   const handleAddFriend = () => {
-    // Upcoming feature
+    enqueueSnackbar('Add Friend Feature Not Yet Available', {
+      variant: 'info',
+    });
   };
 
   return (

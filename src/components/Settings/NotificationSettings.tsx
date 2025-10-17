@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, FormControlLabel, Switch, Typography } from '@/app/muiImports';
+import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 
 export const NotificationSettings = () => {
@@ -16,6 +17,9 @@ export const NotificationSettings = () => {
       ...prev,
       [setting]: !prev[setting],
     }));
+    enqueueSnackbar('Feature not yet available', {
+      variant: 'info',
+    });
   };
 
   return (

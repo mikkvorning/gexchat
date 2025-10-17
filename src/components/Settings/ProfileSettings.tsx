@@ -16,7 +16,6 @@ export const ProfileSettings = () => {
 
   const handleSave = async () => {
     if (!user) return;
-
     setSaving(true);
     setError(null);
     try {
@@ -33,9 +32,8 @@ export const ProfileSettings = () => {
       console.error('Error updating profile:', error);
       let errorMessage = 'Something went wrong. Please try again.';
 
-      if (error instanceof Error) {
-        errorMessage = getErrorMessage(error.message);
-      } else if (error && typeof error === 'object' && 'code' in error) {
+      if (error instanceof Error) errorMessage = getErrorMessage(error.message);
+      else if (error && typeof error === 'object' && 'code' in error) {
         const firebaseError = error as { code: string };
         errorMessage = getErrorMessage(firebaseError.code);
       }

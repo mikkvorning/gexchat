@@ -11,6 +11,7 @@ import {
   Switch,
   Typography,
 } from '@/app/muiImports';
+import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 
 export const PrivacySettings = () => {
@@ -26,6 +27,7 @@ export const PrivacySettings = () => {
       ...prev,
       onlineStatus: value,
     }));
+    enqueueSnackbar('Feature Not Yet Available', { variant: 'info' });
   };
 
   const handleToggle = (setting: keyof typeof settings) => {
@@ -34,6 +36,7 @@ export const PrivacySettings = () => {
       [setting]:
         typeof prev[setting] === 'boolean' ? !prev[setting] : prev[setting],
     }));
+    enqueueSnackbar('Feature Not Yet Available', { variant: 'info' });
   };
 
   return (
@@ -90,9 +93,9 @@ export const PrivacySettings = () => {
           <Button
             variant='outlined'
             color='error'
-            onClick={() => {
-              // TODO: Implement account deletion
-            }}
+            onClick={() =>
+              enqueueSnackbar('Feature Not Yet Available', { variant: 'info' })
+            }
           >
             Delete Account
           </Button>

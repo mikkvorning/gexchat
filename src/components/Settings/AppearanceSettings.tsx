@@ -8,11 +8,26 @@ import {
   RadioGroup,
   Typography,
 } from '@/app/muiImports';
+import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 
 export const AppearanceSettings = () => {
   const [theme, setTheme] = useState('system');
   const [messageDisplay, setMessageDisplay] = useState('bubbles');
+
+  const handleThemeChange = (value: string) => {
+    setTheme(value);
+    enqueueSnackbar('Theme Settings Feature Not Yet Available', {
+      variant: 'info',
+    });
+  };
+
+  const handleMessageDisplayChange = (value: string) => {
+    setMessageDisplay(value);
+    enqueueSnackbar('Message Display Settings Feature Not Yet Available', {
+      variant: 'info',
+    });
+  };
 
   return (
     <Box>
@@ -25,7 +40,10 @@ export const AppearanceSettings = () => {
           Theme
         </Typography>
         <FormControl>
-          <RadioGroup value={theme} onChange={(e) => setTheme(e.target.value)}>
+          <RadioGroup
+            value={theme}
+            onChange={(e) => handleThemeChange(e.target.value)}
+          >
             <FormControlLabel value='light' control={<Radio />} label='Light' />
             <FormControlLabel value='dark' control={<Radio />} label='Dark' />
             <FormControlLabel
@@ -44,7 +62,7 @@ export const AppearanceSettings = () => {
         <FormControl>
           <RadioGroup
             value={messageDisplay}
-            onChange={(e) => setMessageDisplay(e.target.value)}
+            onChange={(e) => handleMessageDisplayChange(e.target.value)}
           >
             <FormControlLabel
               value='bubbles'

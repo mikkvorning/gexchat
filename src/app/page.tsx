@@ -8,6 +8,24 @@ import Chat from '@/components/Chat/Chat';
 import GeminiBotChatView from '@/components/Sidebar/ChatList/GeminiBot/GeminiBotChatView';
 import { useAppContext } from '@/components/AppProvider';
 import { AppProvider } from '@/components/AppProvider';
+import { SnackbarProvider, useSnackbar, SnackbarKey } from 'notistack';
+import { IconButton } from '@/app/muiImports';
+import CloseIcon from '@mui/icons-material/Close';
+
+// Close button component for snackbars
+const SnackbarCloseButton = ({ snackbarId }: { snackbarId: SnackbarKey }) => {
+  const { closeSnackbar } = useSnackbar();
+
+  return (
+    <IconButton
+      size='small'
+      onClick={() => closeSnackbar(snackbarId)}
+      sx={{ color: 'inherit' }}
+    >
+      <CloseIcon fontSize='small' />
+    </IconButton>
+  );
+};
 import { useRecentMessages } from '@/hooks/useRecentMessages';
 
 // Renders GeminiBotChatView if Gemini-bot is selected, otherwise normal Chat
@@ -51,10 +69,17 @@ const Home = () => {
 
   return (
     <Box display='flex' height='100vh'>
-      <AppProvider>
-        <Sidebar />
-        <MainChatSwitcher />
-      </AppProvider>
+      <SnackbarProvider
+        maxSnack={5}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        autoHideDuration={5000}
+        action={(snackbarId) => <SnackbarCloseButton snackbarId={snackbarId} />}
+      >
+        <AppProvider>
+          <Sidebar />
+          <MainChatSwitcher />
+        </AppProvider>
+      </SnackbarProvider>
     </Box>
   );
 };
