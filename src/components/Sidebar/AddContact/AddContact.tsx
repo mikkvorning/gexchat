@@ -19,7 +19,6 @@ import { useAuthContext } from '@/components/AuthProvider';
 import { useAppContext } from '@/components/AppProvider';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { useCreateChat } from '../hooks/useCreateChat';
-import { useAddFriend } from '../hooks/useAddFriend';
 
 interface AddContactProps {
   open: boolean;
@@ -45,8 +44,6 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     }
   );
 
-  const { addFriend, isAddingFriend } = useAddFriend(currentUserId);
-
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const handleAccordionChange =
@@ -64,9 +61,10 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     startChat(userId);
   };
 
-  const handleAddFriend = (friendId: string) => {
-    addFriend(friendId);
+  const handleAddFriend = () => {
+    // Upcoming feature
   };
+
   return (
     <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
       <DialogTitle>Search & Add Contacts</DialogTitle>
@@ -77,8 +75,12 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
           label='Search by display name'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            endAdornment: searchLoading ? <CircularProgress size={20} /> : null,
+          slotProps={{
+            input: {
+              endAdornment: searchLoading ? (
+                <CircularProgress size={20} />
+              ) : null,
+            },
           }}
         />
 
@@ -130,11 +132,10 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                     <Button
                       variant='outlined'
                       color='secondary'
-                      onClick={() => handleAddFriend(result.id)}
-                      disabled={isAddingFriend}
+                      onClick={() => handleAddFriend()}
                       fullWidth
                     >
-                      {isAddingFriend ? 'Adding...' : 'Add Friend'}
+                      Add Friend
                     </Button>
                   </Box>
                 </Box>

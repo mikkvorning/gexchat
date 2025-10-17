@@ -24,9 +24,7 @@ export const useCreateChat = (
       queryClient.invalidateQueries({ queryKey: ['userChats'] });
       onSuccess?.(response.chatId);
     },
-    onError: (error) => {
-      console.error('Failed to create chat:', error);
-    },
+    onError: (error) => console.error('Failed to create chat:', error),
   });
 
   const startChat = (participantId: string) => {

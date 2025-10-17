@@ -1,6 +1,7 @@
 import {
   BaseUser,
   Chat,
+  ChatParticipant,
   ChatSummary,
   CreateChatRequest,
   CreateChatResponse,
@@ -8,7 +9,6 @@ import {
   Message,
 } from '@/types/types';
 import {
-  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -83,7 +83,7 @@ export const createChat = async (
   const chatId = chatRef.id;
 
   // Filter valid participants and create participant list
-  const validParticipants = userDocs
+  const validParticipants: ChatParticipant[] = userDocs
     .filter(({ exists, data }) => exists && data)
     .map(({ userId, data }) => ({
       userId,
@@ -138,9 +138,7 @@ const findExistingDirectChat = async (
     const chat = { id: doc.id, ...doc.data() } as Chat;
 
     // Ensure this is a direct chat with exactly 2 participants
-    if (chat.type !== 'direct' || chat.participants.length !== 2) {
-      continue;
-    }
+    if (chat.type !== 'direct' || chat.participants.length !== 2) continue;
 
     // Compare participant IDs only
     const chatUserIds = chat.participants.map((p) => p.userId).sort();
@@ -149,11 +147,9 @@ const findExistingDirectChat = async (
     if (
       chatUserIds.length === requestUserIds.length &&
       chatUserIds.every((id, index) => id === requestUserIds[index])
-    ) {
+    )
       return chat;
-    }
   }
-
   return null;
 };
 
@@ -350,9 +346,7 @@ export const sendMessage = async (
 
   // Get chat to update unread count for other participants
   const chatSnap = await getDoc(chatRef);
-  if (!chatSnap.exists()) {
-    throw new Error('Chat not found');
-  }
+  if (!chatSnap.exists()) throw new Error('Chat not found');
 
   const chat = chatSnap.data() as Chat;
 
@@ -376,9 +370,7 @@ export const sendMessage = async (
 
   // Update chat with lastActivity and lastMessage at root level, increment unread count for other participants
   const updatedParticipants = chat.participants.map((p) => {
-    if (p.userId === senderId) {
-      return { ...p, unreadCount: 0 };
-    }
+    if (p.userId === senderId) return { ...p, unreadCount: 0 };
     // If user is actively viewing this chat, do not increment their unread count
     if (activeUserId && activeChatId === chatId && p.userId === activeUserId) {
       return p;
@@ -419,33 +411,6 @@ export const sendMessage = async (
     ...messageData,
     timestamp: new Date(), // Return current date for immediate UI update
   } as Message;
-};
-
-/**
- * Add a contact/friend (separate from starting a chat)
- */
-export const addFriend = async (
-  userId: string,
-  friendId: string
-): Promise<void> => {
-  if (!userId || !friendId) throw new Error('Missing user or friend ID');
-  if (userId === friendId) throw new Error('Cannot add yourself as a friend');
-
-  const batch = writeBatch(db);
-
-  // Add friend to current user's friends list
-  const userRef = doc(db, 'users', userId);
-  batch.update(userRef, {
-    'friends.list': arrayUnion(friendId),
-  });
-
-  // Add current user to friend's friends list
-  const friendRef = doc(db, 'users', friendId);
-  batch.update(friendRef, {
-    'friends.list': arrayUnion(userId),
-  });
-
-  await batch.commit();
 };
 
 /**
@@ -494,10 +459,7 @@ export const subscribeToMessages = (
   chatId: string,
   callback: (messages: Message[]) => void
 ): Unsubscribe => {
-  if (!chatId) {
-    throw new Error('Chat ID is required');
-  }
-
+  if (!chatId) throw new Error('Chat ID is required');
   const messagesRef = collection(db, 'chats', chatId, 'messages');
   const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
@@ -512,12 +474,9 @@ export const subscribeToMessages = (
           timestamp: convertTimestamp(data.timestamp as Date | Timestamp),
         };
       }) as Message[];
-
       callback(messages);
     },
-    (error) => {
-      console.error('Error in messages subscription:', error);
-    }
+    (error) => console.error('Error in messages subscription:', error)
   );
 };
 
@@ -526,10 +485,7 @@ export const subscribeToChat = (
   chatId: string,
   callback: (chat: Chat | null) => void
 ): Unsubscribe => {
-  if (!chatId) {
-    throw new Error('Chat ID is required');
-  }
-
+  if (!chatId) throw new Error('Chat ID is required');
   const chatRef = doc(db, 'chats', chatId);
 
   return onSnapshot(
@@ -548,13 +504,9 @@ export const subscribeToChat = (
             : undefined,
         } as Chat;
         callback(chat);
-      } else {
-        callback(null);
-      }
+      } else callback(null);
     },
-    (error) => {
-      console.error('Error in chat subscription:', error);
-    }
+    (error) => console.error('Error in chat subscription:', error)
   );
 };
 
