@@ -1,3 +1,4 @@
+import CenterContent from '@/utils/CenterContent';
 import { Box, Typography } from '../../app/muiImports';
 import { useAppContext } from '../AppProvider';
 import { useAuthContext } from '../AuthProvider';
@@ -8,6 +9,7 @@ import ErrorRibbon from './ErrorRibbon';
 import { useChat } from './hooks/useChat';
 import { useMessageError } from './hooks/useMessageError';
 import { getChatDisplayName } from './utils/chatUtils';
+import { AcceptStatus } from '@/types/types';
 
 const Chat = () => {
   const { user } = useAuthContext();
@@ -32,7 +34,7 @@ const Chat = () => {
           justifyContent: 'center',
         }}
       >
-        <Typography variant='h6' color='text.secondary'>
+        <Typography variant='h6' color='secondary'>
           Select a chat to start chatting
         </Typography>
       </Box>
@@ -49,7 +51,7 @@ const Chat = () => {
           justifyContent: 'center',
         }}
       >
-        <Typography variant='h6' color='text.secondary'>
+        <Typography variant='h6' color='secondary'>
           Loading chat...
         </Typography>
       </Box>
@@ -66,7 +68,7 @@ const Chat = () => {
           justifyContent: 'center',
         }}
       >
-        <Typography variant='h6' color='text.secondary'>
+        <Typography variant='h6' color='secondary'>
           Chat not found
         </Typography>
       </Box>
@@ -74,6 +76,28 @@ const Chat = () => {
   }
 
   const displayName = getChatDisplayName(chat!, user?.uid);
+  const chatAcceptStatus: AcceptStatus = chat.participants.every(
+    (p) => p.acceptStatus === 'ACCEPTED'
+  )
+    ? 'ACCEPTED'
+    : chat.participants.some((p) => p.acceptStatus === 'PENDING')
+    ? 'PENDING'
+    : 'REJECTED';
+
+  const rejectingUsers = chat.participants.filter(
+    (p) => p.acceptStatus === 'REJECTED'
+  );
+
+  if (chatAcceptStatus === 'REJECTED') {
+    return (
+      <CenterContent>
+        <Typography variant='h6' color='primary'>
+          {rejectingUsers.map((p) => p.displayName).join(', ')} has rejected the
+          chat.
+        </Typography>
+      </CenterContent>
+    );
+  }
 
   return (
     <Box
@@ -81,11 +105,18 @@ const Chat = () => {
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
       }}
     >
       <ChatHeader displayName={displayName} />
       <ChatMessages messages={messages} currentUserId={user?.uid} chat={chat} />
+      {chatAcceptStatus === 'PENDING' && (
+        <CenterContent sx={{ alignItems: 'flex-start' }}>
+          <Typography variant='h6' color='primary'>
+            Waiting for {chat.participants.map((p) => p.displayName).join(', ')}{' '}
+            to accept the chat.
+          </Typography>
+        </CenterContent>
+      )}
       <ErrorRibbon
         isVisible={showError}
         failedMessage={failedMessage}
@@ -93,11 +124,15 @@ const Chat = () => {
         onClose={handleClose}
         truncateMessage={truncateMessage}
       />
-      <ChatInput
-        chatId={selectedChat}
-        userId={user?.uid}
-        onSendError={handleError}
-      />
+      {/* Only show ChatInput if chat is accepted or if currently typing initial greeting message */}
+      {chatAcceptStatus === 'ACCEPTED' ||
+        (chatAcceptStatus === 'PENDING' && messages.length === 0 && (
+          <ChatInput
+            chatId={selectedChat}
+            userId={user?.uid}
+            onSendError={handleError}
+          />
+        ))}
     </Box>
   );
 };

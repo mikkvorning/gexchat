@@ -89,6 +89,7 @@ export const createChat = async (
       userId,
       displayName: data?.displayName || 'Unknown User',
       unreadCount: 0,
+      acceptStatus: userId === currentUserId ? 'ACCEPTED' : 'PENDING', // Auto-accept for creator
     }));
 
   const chatData: Chat = {

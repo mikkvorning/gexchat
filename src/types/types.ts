@@ -103,6 +103,8 @@ export interface ChatSummary {
   updatedAt: Date;
 }
 
+export type AcceptStatus = 'ACCEPTED' | 'PENDING' | 'REJECTED';
+
 /**
  * Represents a chat participant with essential display info
  */
@@ -110,6 +112,7 @@ export interface ChatParticipant {
   userId: string;
   displayName: string;
   unreadCount: number;
+  acceptStatus: AcceptStatus;
   lastMessage?: Message; // New: last unread message for this participant
   isTyping?: boolean; // Typing indicator state
 }
