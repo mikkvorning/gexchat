@@ -117,6 +117,58 @@ export const createChat = async (
 };
 
 /**
+ * Accept a chat invitation - mutation function for TanStack React Query
+ */
+export const acceptChatMutation = async ({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) => {
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) throw new Error('Chat not found');
+
+  // Update the chat document to accept the invitation
+  await updateDoc(chatRef, {
+    participants: chatSnap
+      .data()
+      .participants.map((p: ChatParticipant) =>
+        p.userId === userId ? { ...p, acceptStatus: 'ACCEPTED' } : p
+      ),
+  });
+
+  return { chatId, userId };
+};
+
+/**
+ * Reject a chat invitation - mutation function for TanStack React Query
+ */
+export const rejectChatMutation = async ({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) => {
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) throw new Error('Chat not found');
+
+  // Update the chat document to reject the invitation
+  await updateDoc(chatRef, {
+    participants: chatSnap
+      .data()
+      .participants.map((p: ChatParticipant) =>
+        p.userId === userId ? { ...p, acceptStatus: 'REJECTED' } : p
+      ),
+  });
+
+  return { chatId, userId };
+};
+
+/**
  * Find existing direct chat between two users by matching participant IDs
  */
 const findExistingDirectChat = async (

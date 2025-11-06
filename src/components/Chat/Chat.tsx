@@ -1,5 +1,5 @@
 import CenterContent from '@/utils/CenterContent';
-import { Box, Typography } from '../../app/muiImports';
+import { Box, Button, Typography } from '../../app/muiImports';
 import { useAppContext } from '../AppProvider';
 import { useAuthContext } from '../AuthProvider';
 import ChatHeader from './ChatHeader';
@@ -10,11 +10,21 @@ import { useChat } from './hooks/useChat';
 import { useMessageError } from './hooks/useMessageError';
 import { getChatDisplayName } from './utils/chatUtils';
 import { AcceptStatus } from '@/types/types';
+import { Grid } from '@mui/material';
+import { useHandleChatInvitation } from '@/hooks/useHandleChatInvitation';
+import { useEffect } from 'react';
+import { enqueueSnackbar } from 'notistack';
 
 const Chat = () => {
   const { user } = useAuthContext();
   const { selectedChat } = useAppContext();
   const { chat, messages, isLoading, error } = useChat(selectedChat);
+  const {
+    acceptChat,
+    rejectChat,
+    isPending,
+    error: handleInviteError,
+  } = useHandleChatInvitation();
   const {
     showError,
     failedMessage,
@@ -24,54 +34,41 @@ const Chat = () => {
     handleRetry,
   } = useMessageError();
 
+  useEffect(() => {
+    if (handleInviteError) {
+      enqueueSnackbar('Failed to accept/reject chat. Please try again.', {
+        variant: 'error',
+      });
+    }
+  }, [handleInviteError]);
+
   if (!selectedChat) {
     return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <CenterContent>
         <Typography variant='h6' color='secondary'>
           Select a chat to start chatting
         </Typography>
-      </Box>
+      </CenterContent>
     );
   }
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <CenterContent>
         <Typography variant='h6' color='secondary'>
           Loading chat...
         </Typography>
-      </Box>
+      </CenterContent>
     );
   }
 
   if (error || !chat) {
     return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <CenterContent>
         <Typography variant='h6' color='secondary'>
           Chat not found
         </Typography>
-      </Box>
+      </CenterContent>
     );
   }
 
@@ -84,20 +81,69 @@ const Chat = () => {
     ? 'PENDING'
     : 'REJECTED';
 
+  const isInitialMessage =
+    chatAcceptStatus === 'PENDING' && messages.length === 0;
+
   const rejectingUsers = chat.participants.filter(
     (p) => p.acceptStatus === 'REJECTED'
   );
+  // Determine if the current user is being invited
+  const isInvite =
+    chat.participants.find((p) => p.userId === user?.uid)?.acceptStatus ===
+    'PENDING';
 
   if (chatAcceptStatus === 'REJECTED') {
     return (
       <CenterContent>
         <Typography variant='h6' color='primary'>
-          {rejectingUsers.map((p) => p.displayName).join(', ')} has rejected the
-          chat.
+          {rejectingUsers.find((p) => p.userId === user?.uid)
+            ? 'You have rejected the chat.'
+            : rejectingUsers.map((p) => p.displayName).join(', ') +
+              ' has rejected the chat.'}
         </Typography>
       </CenterContent>
     );
   }
+
+  // Displays pending chat invitation message or buttons to accept/reject
+  const ChatPending = () => {
+    return chatAcceptStatus === 'PENDING' ? (
+      <CenterContent sx={{ alignItems: 'flex-start' }}>
+        <Typography variant='h6' color='primary' align='center'>
+          {isInvite ? (
+            <Grid container sx={{ flexDirection: 'column', gap: 2 }}>
+              {chat.participants
+                .filter((p) => p.acceptStatus === 'ACCEPTED')
+                .map((p) => p.displayName)
+                .join(', ')}
+              &nbsp;wants to start a chat.
+              <Grid container spacing={2} justifyContent={'center'}>
+                <Button
+                  variant='contained'
+                  onClick={() => acceptChat(chat.id, user!.uid)}
+                  disabled={isPending}
+                >
+                  Accept
+                </Button>
+                <Button
+                  variant='outlined'
+                  onClick={() => rejectChat(chat.id, user!.uid)}
+                  disabled={isPending}
+                >
+                  Reject
+                </Button>
+              </Grid>
+            </Grid>
+          ) : (
+            `Waiting for ${chat.participants
+              .filter((p) => p.acceptStatus === 'PENDING')
+              .map((p) => p.displayName)
+              .join(', ')} to accept the chat invitation.`
+          )}
+        </Typography>
+      </CenterContent>
+    ) : null;
+  };
 
   return (
     <Box
@@ -109,14 +155,7 @@ const Chat = () => {
     >
       <ChatHeader displayName={displayName} />
       <ChatMessages messages={messages} currentUserId={user?.uid} chat={chat} />
-      {chatAcceptStatus === 'PENDING' && (
-        <CenterContent sx={{ alignItems: 'flex-start' }}>
-          <Typography variant='h6' color='primary'>
-            Waiting for {chat.participants.map((p) => p.displayName).join(', ')}{' '}
-            to accept the chat.
-          </Typography>
-        </CenterContent>
-      )}
+      <ChatPending />
       <ErrorRibbon
         isVisible={showError}
         failedMessage={failedMessage}
@@ -125,14 +164,13 @@ const Chat = () => {
         truncateMessage={truncateMessage}
       />
       {/* Only show ChatInput if chat is accepted or if currently typing initial greeting message */}
-      {chatAcceptStatus === 'ACCEPTED' ||
-        (chatAcceptStatus === 'PENDING' && messages.length === 0 && (
-          <ChatInput
-            chatId={selectedChat}
-            userId={user?.uid}
-            onSendError={handleError}
-          />
-        ))}
+      {(chatAcceptStatus === 'ACCEPTED' || isInitialMessage) && (
+        <ChatInput
+          chatId={selectedChat}
+          userId={user?.uid}
+          onSendError={handleError}
+        />
+      )}
     </Box>
   );
 };
