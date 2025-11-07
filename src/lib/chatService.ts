@@ -5,7 +5,6 @@ import {
   ChatSummary,
   CreateChatRequest,
   CreateChatResponse,
-  CurrentUser,
   Message,
 } from '@/types/types';
 import {
@@ -18,7 +17,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -442,18 +440,27 @@ export const sendMessage = async (
     for (const participant of chat.participants) {
       const userRef = doc(db, 'users', participant.userId);
       const userSnap = await getDoc(userRef);
-      const userData = userSnap.exists() ? userSnap.data() : {};
-      batch.set(
-        userRef,
-        {
-          id: participant.userId,
-          chats: Array.isArray(userData.chats)
-            ? Array.from(new Set([...userData.chats, chatId]))
-            : [chatId],
-          createdAt: userData.createdAt || new Date(),
-        },
-        { merge: true }
-      );
+
+      if (userSnap.exists()) {
+        // User document exists, add this chat to their chats array
+        const userData = userSnap.data();
+        const currentChats = Array.isArray(userData.chats)
+          ? userData.chats
+          : [];
+        const updatedChats = Array.from(new Set([...currentChats, chatId]));
+
+        batch.update(userRef, {
+          chats: updatedChats,
+        });
+      } else {
+        // This should not happen since users are created during signup/login
+        console.error(
+          `User document not found for ${participant.userId}. This indicates a data consistency issue.`
+        );
+        throw new Error(
+          `User document not found for participant ${participant.userId}`
+        );
+      }
     }
   }
 
@@ -464,45 +471,6 @@ export const sendMessage = async (
     ...messageData,
     timestamp: new Date(), // Return current date for immediate UI update
   } as Message;
-};
-
-/**
- * Initialize user document with default structure if it doesn't exist
- */
-export const initializeUserDocument = async (
-  userId: string,
-  userData: Partial<CurrentUser> = {}
-) => {
-  const userRef = doc(db, 'users', userId);
-  const userSnap = await getDoc(userRef);
-
-  if (!userSnap.exists()) {
-    const defaultUserData = {
-      chats: [],
-      blocked: [],
-      friends: {
-        list: [],
-        pending: [],
-      },
-      privacy: {
-        showStatus: true,
-        showLastSeen: true,
-        showActivity: true,
-      },
-      notifications: {
-        enabled: true,
-        sound: true,
-        muteUntil: null,
-      },
-      createdAt: serverTimestamp(),
-      ...userData,
-    };
-
-    await setDoc(userRef, defaultUserData);
-    return defaultUserData;
-  }
-
-  return userSnap.data();
 };
 
 /**
