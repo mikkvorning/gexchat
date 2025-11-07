@@ -134,6 +134,8 @@ const Chat = () => {
                 </Button>
               </Grid>
             </Grid>
+          ) : !chat.lastMessage ? (
+            'Write a message to start the chat.'
           ) : (
             `Waiting for ${chat.participants
               .filter((p) => p.acceptStatus === 'PENDING')
