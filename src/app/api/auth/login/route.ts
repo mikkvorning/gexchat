@@ -5,8 +5,9 @@ import {
   updateProfile,
   sendEmailVerification,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { handleAuthError } from '@/lib/apiUtils';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -26,10 +27,84 @@ export const POST = async (request: NextRequest) => {
         displayName: nickname,
       });
 
+      // Create user document in Firestore immediately
+      // This ensures users are searchable even before email verification
+      const userRef = doc(db, 'users', userCredential.user.uid);
+      await setDoc(userRef, {
+        id: userCredential.user.uid,
+        displayName: nickname,
+        username: nickname.toLowerCase().replace(/\s+/g, ''), // Remove spaces for username
+        email: email,
+        status: 'offline',
+        chats: [],
+        createdAt: new Date(),
+        // Privacy settings - default to conservative settings
+        privacy: {
+          showStatus: true,
+          showLastSeen: true,
+          showActivity: true,
+        },
+        // Notification preferences - default enabled
+        notifications: {
+          enabled: true,
+          sound: true,
+          muteUntil: null,
+        },
+        // Friend management
+        friends: {
+          list: [],
+          pending: [],
+        },
+        // User blocking
+        blocked: [],
+      });
+
       // Send verification email
       await sendEmailVerification(userCredential.user);
     } else {
       userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      // For existing users logging in, ensure they have a user document
+      // This handles legacy users who might not have documents yet
+      const userRef = doc(db, 'users', userCredential.user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // Create user document for legacy user
+        await setDoc(userRef, {
+          id: userCredential.user.uid,
+          displayName:
+            userCredential.user.displayName ||
+            userCredential.user.email?.split('@')[0] ||
+            'User',
+          username: (
+            userCredential.user.displayName ||
+            userCredential.user.email?.split('@')[0] ||
+            'user'
+          )
+            .toLowerCase()
+            .replace(/\s+/g, ''),
+          email: userCredential.user.email!,
+          status: 'offline',
+          chats: [],
+          createdAt: new Date(),
+          privacy: {
+            showStatus: true,
+            showLastSeen: true,
+            showActivity: true,
+          },
+          notifications: {
+            enabled: true,
+            sound: true,
+            muteUntil: null,
+          },
+          friends: {
+            list: [],
+            pending: [],
+          },
+          blocked: [],
+        });
+      }
     }
 
     const user = userCredential.user;
