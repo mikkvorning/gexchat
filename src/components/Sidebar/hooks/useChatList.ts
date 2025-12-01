@@ -1,23 +1,25 @@
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { BaseUser, Chat, ChatSummary } from '../../../types/types';
 import { generateAvatarColor } from '../../../utils/colors';
-import { Chat, ChatSummary, BaseUser } from '../../../types/types';
 
-// Helper to fetch participant user data
-const fetchParticipant = async (id: string): Promise<BaseUser | null> => {
-  const participantRef = doc(db, 'users', id);
-  const participantSnap = await getDoc(participantRef);
-  if (!participantSnap.exists()) return null;
-  const data = participantSnap.data();
-  return {
-    id: participantSnap.id,
-    displayName: data.displayName || 'Unknown User',
-    username:
-      data.username || (data.displayName || 'unknown user').toLowerCase(),
-    avatarUrl: data.avatarUrl,
-    status: data.status || 'offline',
-  };
+// Helper function to extract other participants in a chat
+const getOtherParticipants = (
+  chat: Chat,
+  currentUserId: string
+): BaseUser[] => {
+  return chat.participants
+    .filter((p) => p.userId !== currentUserId)
+    .map((p) => ({
+      id: p.userId,
+      displayName: p.displayName || 'Unknown User',
+      username: (p.displayName || 'unknown user')
+        .toLowerCase()
+        .replace(/\s+/g, ''),
+      avatarUrl: undefined, // Not stored in chat participants - could be fetched separately if needed
+      status: 'offline', // Not stored in chat participants - could be fetched separately if needed
+    }));
 };
 
 /**
@@ -32,8 +34,7 @@ export const useChatList = (
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ...existing code...
-
+  // TODO: Reduce and document this useEffect
   useEffect(() => {
     if (!userId) {
       setIsLoading(false);
@@ -75,12 +76,7 @@ export const useChatList = (
             return;
           }
           const chat = { id: chatSnap.id, ...chatSnap.data() } as Chat;
-          const otherParticipantIds = chat.participants
-            .map((p) => p.userId)
-            .filter((id) => id !== userId);
-          const otherParticipants = (
-            await Promise.all(otherParticipantIds.map(fetchParticipant))
-          ).filter((p): p is BaseUser => !!p);
+          const otherParticipants = getOtherParticipants(chat, userId!);
           let unreadCount =
             chat.participants.find((p) => p.userId === userId)?.unreadCount ||
             0;
