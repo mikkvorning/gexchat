@@ -3,9 +3,9 @@ import { Chat, Message } from '@/types/types';
 import { getErrorMessage } from '@/utils/errorMessages';
 import { useEffect, useMemo, useState } from 'react';
 import { useChatEffects } from '../../../Chat/hooks/useChatEffects';
+import { GEMINI_BOT_CONFIG } from './geminiBotConfig';
 
-const SESSION_KEY = 'gemini-bot-messages';
-const GEMINI_BOT_ID = 'gemini-bot';
+const SESSION_KEY = `${GEMINI_BOT_CONFIG.id}-messages`;
 
 export const useGeminiBotChat = (userId: string) => {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -22,34 +22,40 @@ export const useGeminiBotChat = (userId: string) => {
   const [isGeminiTyping, setIsGeminiTyping] = useState(false);
 
   const { messagesEndRef } = useChatEffects({
-    selectedChat: GEMINI_BOT_ID,
+    selectedChat: GEMINI_BOT_CONFIG.id,
     messages,
     messageInputRef: { current: null }, // ChatInput manages its own ref
   });
 
-  // Create a mock Chat object for the Gemini bot
-  const geminiChat: Chat = useMemo(
+  // User participant is static since userId rarely changes (only on logout/login)
+  const userParticipant = useMemo(
     () => ({
-      id: GEMINI_BOT_ID,
-      type: 'direct' as const,
-      participants: [
-        {
-          userId: userId,
-          displayName: 'You',
-          unreadCount: 0,
-          isTyping: false,
-        },
-        {
-          userId: GEMINI_BOT_ID,
-          displayName: 'Gemini',
-          unreadCount: 0,
-          isTyping: isGeminiTyping,
-        },
-      ],
-      createdAt: new Date(),
+      userId: userId,
+      displayName: 'You',
+      unreadCount: 0,
+      acceptStatus: 'ACCEPTED' as const,
+      isTyping: false,
     }),
-    [userId, isGeminiTyping]
+    [userId]
   );
+
+  // Create a mock Chat object for the Gemini bot
+  const geminiChat: Chat = useMemo(() => {
+    const botParticipant = {
+      userId: GEMINI_BOT_CONFIG.id,
+      displayName: GEMINI_BOT_CONFIG.displayName,
+      unreadCount: 0,
+      acceptStatus: 'ACCEPTED' as const,
+      isTyping: isGeminiTyping,
+    };
+
+    return {
+      id: GEMINI_BOT_CONFIG.id,
+      type: 'direct' as const,
+      participants: [userParticipant, botParticipant],
+      createdAt: new Date(0), // Use epoch time as constant since this is a mock chat
+    };
+  }, [userParticipant, isGeminiTyping]);
 
   // Persist messages in sessionStorage
   useEffect(() => {
@@ -63,7 +69,7 @@ export const useGeminiBotChat = (userId: string) => {
     content: string
   ): Message => ({
     id,
-    chatId: GEMINI_BOT_ID,
+    chatId: GEMINI_BOT_CONFIG.id,
     senderId,
     content,
     timestamp: new Date(),
@@ -77,12 +83,16 @@ export const useGeminiBotChat = (userId: string) => {
 
     try {
       const reply = await generateGeminiText(content);
-      const botMsg = createMessage(`${Date.now()}-bot`, GEMINI_BOT_ID, reply);
+      const botMsg = createMessage(
+        `${Date.now()}-bot`,
+        GEMINI_BOT_CONFIG.id,
+        reply
+      );
       setMessages((prev) => [...prev, botMsg]);
     } catch (error) {
       const errorMsg = createMessage(
         `${Date.now()}-error`,
-        GEMINI_BOT_ID,
+        GEMINI_BOT_CONFIG.id,
         getErrorMessage(error)
       );
       setMessages((prev) => [...prev, errorMsg]);
