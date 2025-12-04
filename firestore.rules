@@ -19,8 +19,10 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read all users (needed for search, display names, etc)
       allow read: if isSignedIn() && isEmailVerified();
-      // Users can only write their own document if email is verified
-      allow write: if isSignedIn() && isEmailVerified() && request.auth.uid == userId;
+      // Users can create their own document during signup (before verification)
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Users can only update their own document if email is verified
+      allow update: if isSignedIn() && isEmailVerified() && request.auth.uid == userId;
     }
 
     // Chat collection rules
