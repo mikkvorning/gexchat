@@ -2,7 +2,7 @@
 
 import { Box, TextField } from '../muiImports';
 import { FormHelperText } from '@mui/material';
-import { FormFieldProps } from './loginFormConfig';
+import { FormFieldProps } from './formConfig';
 
 export const FormField: React.FC<FormFieldProps> = ({
   field,

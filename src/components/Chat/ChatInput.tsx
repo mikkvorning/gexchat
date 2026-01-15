@@ -8,7 +8,7 @@ interface ChatInputProps {
   userId: string | undefined;
   onSendError?: (message: string) => void;
   geminiBotSendFn?: (content: string) => Promise<void>;
-  isLoading?: boolean; // Additional loading state for external processes
+  isLoading?: boolean;
 }
 
 const ChatInput = ({
