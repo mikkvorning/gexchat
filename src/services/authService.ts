@@ -1,14 +1,17 @@
 import axios from 'axios';
 
+export type AuthType = 'login' | 'signup' | 'guest';
+
 export interface AuthRequest {
-  email: string;
-  password: string;
-  isSignup: boolean;
+  authType: AuthType;
+  email?: string;
+  password?: string;
   nickname?: string;
 }
 
 interface AuthResponse {
   success: boolean;
+  customToken?: string; // For guest accounts
   user: {
     uid: string;
     email: string;

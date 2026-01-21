@@ -25,6 +25,7 @@ export const getErrorMessage = (
 		'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
 		'auth/weak-password': 'Password is too weak. Please choose a stronger password.',
 		'auth/requires-recent-login': 'This action requires recent authentication. Please log in again.',
+		'auth/session-creation-failed': 'Failed to establish your session. Please try again.',
 		
 		// Firestore errors
 		'firestore/permission-denied': 'You do not have permission to access this data.',

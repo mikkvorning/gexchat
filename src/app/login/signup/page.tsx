@@ -14,9 +14,9 @@ const Signup = () => {
 
   const handleSubmit = (values: FormValues) => {
     mutate({
+      authType: 'signup',
       email: values.email,
       password: values.password,
-      isSignup: true,
       nickname: values.nickname,
     });
   };

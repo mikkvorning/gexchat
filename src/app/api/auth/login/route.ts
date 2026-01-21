@@ -6,58 +6,98 @@ import {
   sendEmailVerification,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 import { handleAuthError } from '@/lib/apiUtils';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
+// Shared user document data builder
+const buildUserDocumentData = (
+  uid: string,
+  displayName: string,
+  email: string,
+) => ({
+  id: uid,
+  displayName,
+  username: !email
+    ? `guest_${displayName.toLowerCase().replace(/\s+/g, '_')}`
+    : displayName.toLowerCase().replace(/\s+/g, ''),
+  email,
+  status: 'offline',
+  chats: [],
+  createdAt: new Date(),
+  privacy: {
+    showStatus: true,
+    showLastSeen: true,
+    showActivity: true,
+  },
+  notifications: {
+    enabled: true,
+    sound: true,
+    muteUntil: null,
+  },
+  friends: {
+    list: [],
+    pending: [],
+  },
+  blocked: [],
+});
+
+// Helper function to create user document in Firestore (for regular users)
+const createUserDocument = async (
+  uid: string,
+  displayName: string,
+  email: string,
+) => {
+  const userRef = doc(db, 'users', uid);
+  await setDoc(userRef, buildUserDocumentData(uid, displayName, email));
+};
+
+// Helper function to create guest user document with Admin SDK
+const createGuestUserDocument = async (uid: string, displayName: string) => {
+  await adminDb
+    .collection('users')
+    .doc(uid)
+    .set(buildUserDocumentData(uid, displayName, ''));
+};
+
 export const POST = async (request: NextRequest) => {
   try {
-    const { email, password, isSignup, nickname } = await request.json();
+    const { authType, email, password, nickname } = await request.json();
 
     let userCredential;
 
-    if (isSignup) {
+    if (authType === 'guest') {
+      // Handle guest account creation using Admin SDK
+      const userRecord = await adminAuth.createUser({
+        displayName: nickname,
+      });
+
+      // Create user document in Firestore using Admin SDK
+      await createGuestUserDocument(userRecord.uid, nickname);
+
+      // Create a custom token for the client to use
+      const customToken = await adminAuth.createCustomToken(userRecord.uid);
+
+      // Return custom token - client will sign in and establish session
+      return NextResponse.json({
+        success: true,
+        customToken,
+        user: {
+          uid: userRecord.uid,
+          displayName: userRecord.displayName || nickname,
+          email: '',
+          emailVerified: false,
+        },
+      });
+    } else if (authType === 'signup') {
       userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
-        password
+        password,
       );
 
-      // Update user profile with display name
-      await updateProfile(userCredential.user, {
-        displayName: nickname,
-      });
-
-      // Create user document in Firestore immediately
-      // This ensures users are searchable even before email verification
-      const userRef = doc(db, 'users', userCredential.user.uid);
-      await setDoc(userRef, {
-        id: userCredential.user.uid,
-        displayName: nickname,
-        username: nickname.toLowerCase().replace(/\s+/g, ''), // Remove spaces for username
-        email: email,
-        status: 'offline',
-        chats: [],
-        createdAt: new Date(),
-        // Privacy settings - default to conservative settings
-        privacy: {
-          showStatus: true,
-          showLastSeen: true,
-          showActivity: true,
-        },
-        // Notification preferences - default enabled
-        notifications: {
-          enabled: true,
-          sound: true,
-          muteUntil: null,
-        },
-        // Friend management
-        friends: {
-          list: [],
-          pending: [],
-        },
-        // User blocking
-        blocked: [],
-      });
+      // Create user document
+      await createUserDocument(userCredential.user.uid, nickname, email, false);
 
       // Send verification email
       await sendEmailVerification(userCredential.user);
@@ -71,39 +111,16 @@ export const POST = async (request: NextRequest) => {
 
       if (!userSnap.exists()) {
         // Create user document for legacy user
-        await setDoc(userRef, {
-          id: userCredential.user.uid,
-          displayName:
-            userCredential.user.displayName ||
-            userCredential.user.email?.split('@')[0] ||
-            'User',
-          username: (
-            userCredential.user.displayName ||
-            userCredential.user.email?.split('@')[0] ||
-            'user'
-          )
-            .toLowerCase()
-            .replace(/\s+/g, ''),
-          email: userCredential.user.email!,
-          status: 'offline',
-          chats: [],
-          createdAt: new Date(),
-          privacy: {
-            showStatus: true,
-            showLastSeen: true,
-            showActivity: true,
-          },
-          notifications: {
-            enabled: true,
-            sound: true,
-            muteUntil: null,
-          },
-          friends: {
-            list: [],
-            pending: [],
-          },
-          blocked: [],
-        });
+        const displayName =
+          userCredential.user.displayName ||
+          userCredential.user.email?.split('@')[0] ||
+          'User';
+        await createUserDocument(
+          userCredential.user.uid,
+          displayName,
+          userCredential.user.email!,
+          false,
+        );
       }
     }
 
@@ -132,15 +149,18 @@ export const POST = async (request: NextRequest) => {
       path: '/',
     });
 
-    // Set email verification status
-    response.cookies.set('emailVerified', user.emailVerified.toString(), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 5, // 5 days
-      path: '/',
-    });
-
+    // Set email verification status (true for guests, actual status for others)
+    response.cookies.set(
+      'emailVerified',
+      authType === 'guest' ? 'true' : user.emailVerified.toString(),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 5, // 5 days
+        path: '/',
+      },
+    );
     return response;
   } catch (error) {
     return handleAuthError(error);

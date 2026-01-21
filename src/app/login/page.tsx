@@ -18,13 +18,12 @@ const Login = () => {
 
   const handleSubmit = (values: FormValues) => {
     mutate({
+      authType: formState,
       email: values.email,
       password: values.password,
-      isSignup: false,
       nickname: values.nickname,
     });
   };
-
   return (
     <AuthForm
       title={formConfigs[formState].title}
