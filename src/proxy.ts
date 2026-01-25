@@ -30,7 +30,8 @@ const middleware = async (request: NextRequest) => {
   }
 
   // Redirect authenticated but unverified users to verify page
-  if (isAuthenticated && !emailVerified) {
+  // unless the cookie is missing (undefined) but session exists, then allow through to handle race condition during guest login
+  if (isAuthenticated && !emailVerified && emailVerifiedCookie !== undefined) {
     if (!isOnVerifyPage) {
       return NextResponse.redirect(new URL('/verify', request.url));
     }
