@@ -1,12 +1,12 @@
-import { useAuthContext } from '@/components/AuthProvider';
-import { auth } from '@/lib/firebase';
-import { AuthRequest, authService } from '@/services/authService';
-import { useMutation } from '@tanstack/react-query';
 import {
   signInWithCustomToken,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+
+import { auth } from '@/lib/firebase';
+import { AuthRequest, authService } from '@/services/authService';
+import { useMutation } from '@tanstack/react-query';
 
 /**
  * Creates a server session for guest users after client-side authentication.
@@ -60,7 +60,6 @@ const createGuestSession = async (idToken: string): Promise<void> => {
  */
 export const useAuth = () => {
   const router = useRouter();
-  const { setUser } = useAuthContext();
 
   return useMutation({
     mutationFn: authService.authenticate,
@@ -68,27 +67,23 @@ export const useAuth = () => {
     onSuccess: async (data, variables: AuthRequest) => {
       // Guest accounts: Sign in with custom token, then establish session
       if (variables.authType === 'guest' && data.customToken) {
-        const userCredential = await signInWithCustomToken(
-          auth,
-          data.customToken,
-        );
-        const idToken = await userCredential.user.getIdToken();
+        await signInWithCustomToken(auth, data.customToken);
+        const idToken = await auth.currentUser!.getIdToken();
 
         // Create server session
         await createGuestSession(idToken);
 
-        setUser(userCredential.user);
+        // Navigate immediately - AuthProvider will detect guest user and skip verification
         router.replace('/');
         return;
       } // Step 1: Establish Firebase client authentication
       // This is required for all authenticated users to enable Firebase features
       // like email verification, even if they're not yet verified
-      const userCredential = await signInWithEmailAndPassword(
+      await signInWithEmailAndPassword(
         auth,
         variables.email!,
         variables.password!,
       );
-      setUser(userCredential.user);
 
       // Step 2: Force token refresh to get latest email_verified claim
       // This ensures the Firebase token reflects the current verification status

@@ -27,21 +27,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const validateAuthState = async () => {
       if (authUser) {
-        try {
-          // Check if server session is valid using authService
-          const data = await authService.verifySession();
+        // Guest users don't have email - skip verification for them
+        const isGuest = !authUser.email;
 
-          // Only accept Firebase user if server confirms the session
-          if (data.user?.uid === authUser.uid) setUser(authUser);
-          else {
-            // Session mismatch - someone might be spoofing
+        if (isGuest) setUser(authUser);
+        else {
+          try {
+            // Check if server session is valid using authService
+            const data = await authService.verifySession();
+
+            // Only accept Firebase user if server confirms the session
+            if (data.user?.uid === authUser.uid) setUser(authUser);
+            else {
+              // Session mismatch - someone might be spoofing
+              await auth.signOut();
+              setUser(null);
+            }
+          } catch {
+            // Server session invalid - clear client auth
             await auth.signOut();
             setUser(null);
           }
-        } catch {
-          // Server session invalid - clear client auth
-          await auth.signOut();
-          setUser(null);
         }
       }
       // No Firebase user

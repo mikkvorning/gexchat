@@ -47,7 +47,7 @@ api.interceptors.response.use(
   (error) => {
     if (axios.isAxiosError(error) && error.response?.data) {
       const authError = new Error(
-        error.response.data.message || 'Authentication failed'
+        error.response.data.message || 'Authentication failed',
       ) as AuthError;
 
       // Preserve Firebase error code for getErrorMessage translation
@@ -56,7 +56,7 @@ api.interceptors.response.use(
       throw authError;
     }
     throw error;
-  }
+  },
 );
 
 export const authService = {
