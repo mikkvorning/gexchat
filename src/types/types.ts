@@ -1,3 +1,5 @@
+export type OnlineStatus = 'online' | 'offline' | 'away';
+
 /**
  * Basic user info available to all users
  */
@@ -6,7 +8,7 @@ export interface BaseUser {
   displayName: string;
   username: string; // Lowercase version for case-insensitive searches
   avatarUrl?: string;
-  status: 'online' | 'offline' | 'away';
+  status: OnlineStatus;
 }
 
 /**

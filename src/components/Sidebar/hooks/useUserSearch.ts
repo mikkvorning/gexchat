@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { OnlineStatus } from '@/types/types';
 
 interface SearchResult {
   id: string;
-  email: string;
+  //email: string;
   displayName: string;
+  createdAt: { toDate(): Date };
+  status: OnlineStatus;
 }
 
 /**
@@ -43,7 +46,7 @@ export const useUserSearch = (currentUserId: string | undefined) => {
         usersRef,
         where('username', '>=', lowerSearchTerm),
         where('username', '<=', lowerSearchTerm + '\uf8ff'),
-        limit(10) // Limit results to prevent excessive data transfer
+        limit(10), // Limit results to prevent excessive data transfer
       );
 
       const displayNameSnap = await getDocs(displayNameQuery);
@@ -51,22 +54,13 @@ export const useUserSearch = (currentUserId: string | undefined) => {
 
       displayNameSnap.forEach((doc) => {
         if (doc.id !== currentUserId) {
-          const data = doc.data() as {
-            email: string;
-            displayName: string;
-            username: string;
-          };
-          results.push({
-            id: doc.id,
-            email: data.email,
-            displayName: data.displayName, // Still return the original displayName for display
-          });
+          results.push({ id: doc.id, ...doc.data() } as SearchResult);
         }
       });
 
       return results;
     },
-    []
+    [],
   );
 
   // Search query

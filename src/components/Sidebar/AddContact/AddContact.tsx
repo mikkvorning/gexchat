@@ -42,7 +42,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     (chatId) => {
       setSelectedChat(chatId);
       onClose();
-    }
+    },
   );
 
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -59,7 +59,13 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   };
 
   const handleStartChat = (userId: string) => {
-    startChat(userId);
+    if (user) {
+      if (user.email) startChat(userId);
+      else
+        enqueueSnackbar('Only verified users are allowed to start chats.', {
+          variant: 'warning',
+        });
+    }
   };
 
   const handleAddFriend = () => {
@@ -107,18 +113,24 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
               <AccordionDetails>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <Box>
-                    <Typography
-                      variant='body2'
-                      color='text.secondary'
-                      gutterBottom
-                    >
+                    <Typography variant='body1' gutterBottom>
                       Profile Information
                     </Typography>
-                    <Typography variant='body1' sx={{ mb: 1 }}>
-                      <strong>Name:</strong> {result.displayName}
+                    <Typography
+                      variant='body2'
+                      gutterBottom
+                      color='text.secondary'
+                    >
+                      Created at:&nbsp;
+                      {result.createdAt?.toDate().toLocaleDateString() || 'N/A'}
                     </Typography>
-                    <Typography variant='body1' sx={{ mb: 1 }}>
-                      <strong>Email:</strong> {result.email}
+                    <Typography
+                      variant='body2'
+                      gutterBottom
+                      color='text.secondary'
+                    >
+                      Status:&nbsp;
+                      {result.status}
                     </Typography>
                   </Box>
 
