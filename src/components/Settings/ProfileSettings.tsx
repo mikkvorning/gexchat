@@ -1,47 +1,37 @@
 'use client';
 
-import { useAuthContext } from '@/components/AuthProvider';
 import { Box, Button, TextField, Typography } from '@/app/muiImports';
-import { useState } from 'react';
-import { updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useAuthContext } from '@/components/AuthProvider';
 import { db } from '@/lib/firebase';
 import { getErrorMessage } from '@/utils/errorMessages';
+import { useMutation } from '@tanstack/react-query';
+import { updateProfile } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { enqueueSnackbar } from 'notistack';
+import { useState } from 'react';
 
 export const ProfileSettings = () => {
   const { user } = useAuthContext();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async () => {
-    if (!user) return;
-    setSaving(true);
-    setError(null);
-    try {
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        displayName,
-      });
-
-      // Update Firestore user document - only update displayName, never username
+  const updateProfileMutation = useMutation({
+    mutationFn: async (newDisplayName: string) => {
+      if (!user) throw new Error('No user');
+      await updateProfile(user, { displayName: newDisplayName });
       await updateDoc(doc(db, 'users', user.uid), {
-        displayName,
+        displayName: newDisplayName,
       });
-    } catch (error: unknown) {
-      console.error('Error updating profile:', error);
-      let errorMessage = 'Something went wrong. Please try again.';
+    },
+    onError: (error: unknown) => {
+      enqueueSnackbar(getErrorMessage(error), { variant: 'error' });
+    },
+    onSuccess: () => {
+      enqueueSnackbar('Profile updated', { variant: 'success' });
+    },
+  });
 
-      if (error instanceof Error) errorMessage = getErrorMessage(error.message);
-      else if (error && typeof error === 'object' && 'code' in error) {
-        const firebaseError = error as { code: string };
-        errorMessage = getErrorMessage(firebaseError.code);
-      }
-
-      setError(errorMessage);
-    } finally {
-      setSaving(false);
-    }
+  const handleSave = () => {
+    updateProfileMutation.mutate(displayName);
   };
 
   return (
@@ -52,29 +42,19 @@ export const ProfileSettings = () => {
       <Box sx={{ maxWidth: 400, mt: 3 }}>
         <TextField
           fullWidth
-          label='Email'
-          value={user?.email || ''}
-          disabled
-          sx={{ mb: 3 }}
-        />
-        <TextField
-          fullWidth
           label='Display Name'
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           sx={{ mb: 3 }}
         />
-        {error && (
-          <Typography color='error' variant='body2' sx={{ mb: 2 }}>
-            {error}
-          </Typography>
-        )}
         <Button
           variant='contained'
           onClick={handleSave}
-          disabled={saving || displayName === user?.displayName}
+          disabled={
+            updateProfileMutation.isPending || displayName === user?.displayName
+          }
         >
-          {saving ? 'Saving...' : 'Save Changes'}
+          {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
         </Button>
       </Box>
     </Box>

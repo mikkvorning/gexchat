@@ -59,13 +59,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
   };
 
   const handleStartChat = (userId: string) => {
-    if (user) {
-      if (user.email) startChat(userId);
-      else
-        enqueueSnackbar('Only verified users are allowed to start chats.', {
-          variant: 'warning',
-        });
-    }
+    startChat(userId);
   };
 
   const handleAddFriend = () => {
@@ -107,7 +101,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                 id={`panel-${result.id}-header`}
               >
                 <Typography variant='subtitle1' sx={{ fontWeight: 'medium' }}>
-                  {result.displayName}
+                  {result.username}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -115,6 +109,14 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
                   <Box>
                     <Typography variant='body1' gutterBottom>
                       Profile Information
+                    </Typography>
+                    <Typography
+                      variant='body2'
+                      gutterBottom
+                      color='text.secondary'
+                    >
+                      Display name:
+                      {result.displayName || result.username}
                     </Typography>
                     <Typography
                       variant='body2'

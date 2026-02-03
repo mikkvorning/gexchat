@@ -7,7 +7,7 @@ import { OnlineStatus } from '@/types/types';
 
 interface SearchResult {
   id: string;
-  //email: string;
+  username: string;
   displayName: string;
   createdAt: { toDate(): Date };
   status: OnlineStatus;
