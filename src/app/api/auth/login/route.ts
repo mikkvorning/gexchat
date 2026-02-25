@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  updateProfile,
   sendEmailVerification,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -14,14 +13,14 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 const buildUserDocumentData = (
   uid: string,
   displayName: string,
-  email: string,
+  isGuest: boolean,
 ) => ({
   id: uid,
   displayName,
-  username: !email
+  username: isGuest
     ? `guest_${displayName.toLowerCase().replace(/\s+/g, '_')}`
     : displayName.toLowerCase().replace(/\s+/g, ''),
-  email,
+  isGuest,
   status: 'offline',
   chats: [],
   createdAt: new Date(),
@@ -43,13 +42,9 @@ const buildUserDocumentData = (
 });
 
 // Helper function to create user document in Firestore (for regular users)
-const createUserDocument = async (
-  uid: string,
-  displayName: string,
-  email: string,
-) => {
+const createUserDocument = async (uid: string, displayName: string) => {
   const userRef = doc(db, 'users', uid);
-  await setDoc(userRef, buildUserDocumentData(uid, displayName, email));
+  await setDoc(userRef, buildUserDocumentData(uid, displayName, false));
 };
 
 // Helper function to create guest user document with Admin SDK
@@ -57,7 +52,7 @@ const createGuestUserDocument = async (uid: string, displayName: string) => {
   await adminDb
     .collection('users')
     .doc(uid)
-    .set(buildUserDocumentData(uid, displayName, ''));
+    .set(buildUserDocumentData(uid, displayName, true));
 };
 
 export const POST = async (request: NextRequest) => {
@@ -97,7 +92,7 @@ export const POST = async (request: NextRequest) => {
       );
 
       // Create user document
-      await createUserDocument(userCredential.user.uid, nickname, email, false);
+      await createUserDocument(userCredential.user.uid, nickname);
 
       // Send verification email
       await sendEmailVerification(userCredential.user);
@@ -115,12 +110,7 @@ export const POST = async (request: NextRequest) => {
           userCredential.user.displayName ||
           userCredential.user.email?.split('@')[0] ||
           'User';
-        await createUserDocument(
-          userCredential.user.uid,
-          displayName,
-          userCredential.user.email!,
-          false,
-        );
+        await createUserDocument(userCredential.user.uid, displayName);
       }
     }
 
@@ -134,7 +124,6 @@ export const POST = async (request: NextRequest) => {
       success: true,
       user: {
         uid: user.uid,
-        email: user.email,
         emailVerified: user.emailVerified,
         displayName: user.displayName,
       },

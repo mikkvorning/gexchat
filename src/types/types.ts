@@ -15,7 +15,6 @@ export interface BaseUser {
  * Currently logged in user
  */
 export interface CurrentUser extends BaseUser {
-  email: string;
   createdAt: Date;
 
   // User's active chats

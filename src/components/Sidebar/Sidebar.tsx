@@ -50,7 +50,7 @@ const Sidebar: React.FC = () => {
               },
             }}
           >
-            <span>{user?.displayName || user?.email || 'User'}</span>
+            <span>{user?.displayName || 'User'}</span>
           </Button>
 
           <IconButton

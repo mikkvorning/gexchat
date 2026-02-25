@@ -14,7 +14,6 @@ interface AuthResponse {
   customToken?: string; // For guest accounts
   user: {
     uid: string;
-    email: string;
     emailVerified: boolean;
     displayName: string;
   };
@@ -24,7 +23,6 @@ interface SessionVerificationResponse {
   success: boolean;
   user: {
     uid: string;
-    email: string;
     emailVerified: boolean;
   };
 }

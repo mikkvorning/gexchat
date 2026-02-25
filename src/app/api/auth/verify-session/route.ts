@@ -33,7 +33,6 @@ export const GET = async (request: NextRequest) => {
       success: true,
       user: {
         uid: decodedToken.uid,
-        email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
       },
     });

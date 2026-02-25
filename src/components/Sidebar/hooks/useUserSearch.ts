@@ -54,7 +54,14 @@ export const useUserSearch = (currentUserId: string | undefined) => {
 
       displayNameSnap.forEach((doc) => {
         if (doc.id !== currentUserId) {
-          results.push({ id: doc.id, ...doc.data() } as SearchResult);
+          const data = doc.data();
+          results.push({
+            id: doc.id,
+            username: data.username,
+            displayName: data.displayName,
+            createdAt: data.createdAt,
+            status: data.status,
+          });
         }
       });
 

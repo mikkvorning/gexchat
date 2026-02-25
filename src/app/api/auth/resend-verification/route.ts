@@ -39,7 +39,7 @@ export const POST = async (request: NextRequest) => {
     if (userRecord.emailVerified) {
       return NextResponse.json(
         { error: 'Email is already verified' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,7 +48,6 @@ export const POST = async (request: NextRequest) => {
       success: true,
       user: {
         uid: decodedToken.uid,
-        email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
       },
     });
