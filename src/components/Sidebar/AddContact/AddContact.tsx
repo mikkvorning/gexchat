@@ -70,8 +70,11 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
 
   return (
     <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
-      <DialogTitle>Search & Add Contacts</DialogTitle>
+      <DialogTitle color='primary'>Search & Add Contacts</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant='body2' color='text.secondary'>
+          {`Example: "gexzor"`}
+        </Typography>
         <TextField
           fullWidth
           margin='dense'
