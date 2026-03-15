@@ -72,13 +72,10 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
     <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth='sm'>
       <DialogTitle color='primary'>Search & Add Contacts</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Typography variant='body2' color='text.secondary'>
-          {`Example: "gexzor"`}
-        </Typography>
         <TextField
           fullWidth
           margin='dense'
-          label='Search by display name'
+          label='Example: "gexzor"'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           slotProps={{
