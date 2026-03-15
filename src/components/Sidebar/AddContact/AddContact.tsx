@@ -75,7 +75,7 @@ const AddContact: React.FC<AddContactProps> = ({ open, onClose }) => {
         <TextField
           fullWidth
           margin='dense'
-          label='Example: "gexzor"'
+          label='Example: gexzor'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           slotProps={{
