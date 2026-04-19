@@ -10,7 +10,7 @@ interface UseMessagingProps {
   onMessageSent?: () => void; // Callback when message is successfully sent
 }
 
-const TYPING_TIMEOUT_MS = 5000;
+const TYPING_TIMEOUT_MS = 8000;
 const GEMINI_BOT_ID = 'gemini-bot';
 
 export const useMessaging = ({
@@ -173,7 +173,7 @@ export const useMessaging = ({
         } else if (shouldResumeTyping) handleStartTyping(); // User is typing but typing status is false (likely due to timeout)
       }
     },
-    [isGeminiBot, handleStartTyping, handleStopTyping]
+    [isGeminiBot, handleStartTyping, handleStopTyping],
   );
 
   return {
