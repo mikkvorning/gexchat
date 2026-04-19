@@ -19,7 +19,7 @@ const ChatMessages = ({ messages, currentUserId, chat }: ChatMessagesProps) => {
   // Derive typing participants from chat data
   const typingParticipants =
     chat?.participants.filter(
-      (p) => p.isTyping && p.userId !== currentUserId
+      (p) => p.isTyping && p.userId !== currentUserId,
     ) || [];
 
   return (
@@ -46,7 +46,7 @@ const ChatMessages = ({ messages, currentUserId, chat }: ChatMessagesProps) => {
         return (
           <Box
             key={message.id}
-            className={animationClass}
+            className={`${animationClass} message-scroll-animation`}
             sx={{
               mb: 2,
               display: 'flex',
